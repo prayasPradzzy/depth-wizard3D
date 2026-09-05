@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DepthWizard - 3D Terrain Flythrough (ISRO PS 26175)</title>
+  <style>
+    :root {
+      --bg-glass: rgba(13, 17, 23, 0.85);
+      --border-glass: rgba(255, 255, 255, 0.12);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --accent-green: #34d399;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #090d16;
+      color: var(--text);
+    }
+
+    #viewport-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Glassmorphic UI Panels */
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      padding: 16px;
+      z-index: 10;
+    }
+
+    /* Header */
+    #header-bar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-geo {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Controls Panel */
+    #controls-panel {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 310px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 13px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .control-val {
+      color: var(--accent);
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 9px 12px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-glass);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1, #075985);
+    }
+
+    /* HUD / Elevation readout */
+    #hud-panel {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      min-width: 260px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hud-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+
+    .hud-highlight {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-green);
+      font-family: monospace;
+    }
+
+    /* Debug Stats */
+    #stats-badge {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+      padding: 6px 10px;
+    }
+
+    /* Drag-and-drop overlay */
+    #dropzone-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(8, 14, 26, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+      border: 3px dashed var(--accent);
+    }
+
+    #dropzone-overlay.active {
+      display: flex;
+    }
+
+    /* Loading Spinner */
+    #loading-scrim {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 50;
+      transition: opacity 0.3s ease;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Crosshair for Flythrough mode */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+      z-index: 20;
+    }
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.7);
+    }
+    #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }
+    #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }
+
+    #flythrough-hint {
+      position: absolute;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid var(--border-glass);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #fff;
+      display: none;
+      z-index: 20;
+      pointer-events: none;
+    }
+  </style>
+
+  <!-- Import maps polyfill and Three.js from modern CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="viewport-container"></div>
+
+  <!-- Header -->
+  <div id="header-bar" class="glass-panel">
+    <span class="badge">ISRO PS 26175</span>
+    <h1>DepthWizard 3D</h1>
+    <span id="geo-badge" class="badge badge-geo" style="display: none;">METRIC DSM</span>
+  </div>
+
+  <!-- Controls Panel -->
+  <div id="controls-panel" class="glass-panel">
+    <div class="control-group">
+      <div class="control-label">
+        <span>Vertical Exaggeration</span>
+        <span id="exag-val" class="control-val">1.5x</span>
+      </div>
+      <input type="range" id="exag-slider" min="0.5" max="5.0" step="0.1" value="1.5">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Sun Azimuth (Shadows)</span>
+        <span id="sun-val" class="control-val">135°</span>
+      </div>
+      <input type="range" id="sun-slider" min="0" max="360" step="1" value="135">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">
+        <span>Sun Elevation Angle</span>
+        <span id="sun-elev-val" class="control-val">45°</span>
+      </div>
+      <input type="range" id="sun-elev-slider" min="10" max="85" step="1" value="45">
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Navigation Mode</span>
+      <div class="btn-row">
+        <button id="btn-orbit" class="btn active">Orbit Mode</button>
+        <button id="btn-fly" class="btn">Flythrough</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Visual Shader</span>
+      <div class="btn-row">
+        <button id="btn-wireframe" class="btn">Wireframe</button>
+        <button id="btn-reset-view" class="btn">Reset View</button>
+      </div>
+    </div>
+
+    <div class="control-group" style="margin-top: 4px;">
+      <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.tif,.tiff" style="display: none;">
+      <button id="btn-upload" class="btn btn-primary" onclick="document.getElementById('file-input').click();">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Upload Satellite Image
+      </button>
+    </div>
+  </div>
+
+  <!-- HUD Readout -->
+  <div id="hud-panel" class="glass-panel">
+    <div class="hud-row">
+      <span>Cursor Elevation:</span>
+      <span id="cursor-elevation" class="hud-highlight">--</span>
+    </div>
+    <div class="hud-row">
+      <span>Elevation Span:</span>
+      <span id="hud-span">--</span>
+    </div>
+    <div class="hud-row">
+      <span>Datum Reference:</span>
+      <span id="hud-datum">Relative (0-1)</span>
+    </div>
+    <div class="hud-row">
+      <span>Ground Resolution (GSD):</span>
+      <span id="hud-gsd">--</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div id="stats-badge" class="glass-panel">
+    <span id="fps-stat">60 FPS</span> | <span id="verts-stat">262k Verts</span>
+  </div>
+
+  <!-- Flythrough Crosshair & Hint -->
+  <div id="crosshair"></div>
+  <div id="flythrough-hint">Click scene to lock mouse. WASD = Fly, SPACE = Up, C = Down, ESC = Exit.</div>
+
+  <!-- Drag-and-drop overlay -->
+  <div id="dropzone-overlay">
+    <svg width="48" height="48" fill="none" stroke="#38bdf8" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+    <h2>Drop Aerial/Satellite Image Here</h2>
+    <p style="color: var(--text-muted); font-size: 13px;">Supports GeoTIFF (.tif) and standard RGB (.png, .jpg)</p>
+  </div>
+
+  <!-- Loading Scrim -->
+  <div id="loading-scrim">
+    <div class="spinner"></div>
+    <h3 id="loading-text">Loading 3D Terrain Model...</h3>
+  </div>
+
+  <!-- Main Three.js Application Logic -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    // Global App State
+    let scene, camera, renderer, orbitControls, flyControls;
+    let terrainMesh = null;
+    let terrainGeometry = null;
+    let terrainMaterial = null;
+    let directionalLight, ambientLight;
+    let rawElevations = null;
+    let currentManifest = null;
+    let baseDatum = 0;
+    let heightScale = 1.0;
+    let isWireframe = false;
+    let flythroughActive = false;
+
+    // Movement for Flythrough Mode
+    const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false };
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    let prevTime = performance.now();
+
+    // Raycasting for Elevation Readout
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2(-999, -999);
+
+    // FPS Tracking
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+
+    function init() {
+      const container = document.getElementById('viewport-container');
+
+      // 1. Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0e17);
+      scene.fog = new THREE.FogExp2(0x0a0e17, 0.0015);
+
+      // 2. Camera
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 5000);
+      camera.position.set(0, 300, 450);
+
+      // 3. Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      container.appendChild(renderer.domElement);
+
+      // 4. Lighting (Sunlight + Ambient)
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+
+      directionalLight = new THREE.DirectionalLight(0xfffbf0, 1.6);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.camera.near = 10;
+      directionalLight.shadow.camera.far = 2000;
+      const d = 500;
+      directionalLight.shadow.camera.left = -d;
+      directionalLight.shadow.camera.right = d;
+      directionalLight.shadow.camera.top = d;
+      directionalLight.shadow.camera.bottom = -d;
+      scene.add(directionalLight);
+
+      updateSunPosition(135, 45);
+
+      // 5. Controls
+      orbitControls = new OrbitControls(camera, renderer.domElement);
+      orbitControls.enableDamping = true;
+      orbitControls.dampingFactor = 0.05;
+      orbitControls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't go below ground
+      orbitControls.minDistance = 20;
+      orbitControls.maxDistance = 2500;
+
+      flyControls = new PointerLockControls(camera, document.body);
+      scene.add(flyControls.getObject());
+
+      // 6. Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+      setupUIEventListeners();
+      setupFlythroughKeys();
+      setupDragAndDrop();
+
+      // 7. Load Initial/Default Asset
+      loadTerrainJob('latest');
+
+      // 8. Animation Loop
+      animate();
+    }
+
+    function updateSunPosition(azimuthDeg, elevationDeg) {
+      const azRad = THREE.MathUtils.degToRad(azimuthDeg);
+      const elRad = THREE.MathUtils.degToRad(elevationDeg);
+      const distance = 800;
+
+      const x = distance * Math.cos(elRad) * Math.sin(azRad);
+      const y = distance * Math.sin(elRad);
+      const z = distance * Math.cos(elRad) * Math.cos(azRad);
+
+      directionalLight.position.set(x, y, z);
+    }
+
+    async function loadTerrainJob(jobId) {
+      showLoading(true, "Downloading 3D Mesh and Texture...");
+      try {
+        const manifestRes = await fetch(`/api/result/${jobId}`);
+        if (!manifestRes.ok) throw new Error("Could not load job manifest.");
+        const data = await manifestRes.json();
+        currentManifest = data.manifest;
+
+        // Fetch binary elevation buffer (exact 32-bit float array)
+        const binRes = await fetch(`/api/assets/${jobId}/heightmap.bin`);
+        if (!binRes.ok) throw new Error("Could not load binary heightmap.");
+        const buffer = await binRes.arrayBuffer();
+        rawElevations = new Float32Array(buffer);
+
+        // Fetch RGB texture
+        const textureLoader = new THREE.TextureLoader();
+        const texture = await textureLoader.loadAsync(`/api/assets/${jobId}/texture.png`);
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.colorSpace = THREE.SRGBColorSpace;
+
+        buildTerrainMesh(currentManifest, rawElevations, texture);
+        updateHUD(currentManifest);
+        showLoading(false);
+      } catch (err) {
+        console.error("Failed to load terrain:", err);
+        showLoading(true, "Failed to load terrain: " + err.message);
+      }
+    }
+
+    function buildTerrainMesh(manifest, elevations, texture) {
+      if (terrainMesh) {
+        scene.remove(terrainMesh);
+        terrainGeometry.dispose();
+        terrainMaterial.dispose();
+      }
+
+      const w = manifest.width;
+      const h = manifest.height;
+      const worldScale = 500; // Base footprint size in scene units
+      const worldWidth = worldScale;
+      const worldHeight = worldScale / manifest.aspect_ratio;
+
+      // Plane geometry subdivided to match heightmap resolution exactly
+      terrainGeometry = new THREE.PlaneGeometry(worldWidth, worldHeight, w - 1, h - 1);
+      // Rotate plane so Z becomes vertical elevation (Three.js Y is up)
+      terrainGeometry.rotateX(-Math.PI / 2);
+
+      // Compute physical height scale factor
+      const span = manifest.elevation_span_m;
+      baseDatum = manifest.min_elevation_m;
+
+      // Map elevation span to a proportional vertical dimension in 3D world space
+      heightScale = (worldWidth / w) * (manifest.is_georeferenced ? 1.0 : 60.0);
+      if (manifest.is_georeferenced && manifest.gsd_m) {
+        // Precise 1:1 metric scale if GSD is known
+        const sceneUnitsPerMetre = worldWidth / (w * manifest.gsd_m);
+        heightScale = sceneUnitsPerMetre;
+      }
+
+      applyElevationDisplacement();
+
+      terrainMaterial = new THREE.MeshStandardMaterial({
+        map: texture,
+        wireframe: isWireframe,
+        roughness: 0.85,
+        metalness: 0.1,
+        flatShading: false,
+      });
+
+      terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
+      terrainMesh.receiveShadow = true;
+      terrainMesh.castShadow = true;
+      scene.add(terrainMesh);
+
+      // Reset camera to frame terrain
+      resetCameraView(worldWidth, worldHeight);
+
+      // Update HUD Vertices
+      document.getElementById('verts-stat').textContent = `${(w * h / 1000).toFixed(0)}k Verts (${w}x${h})`;
+    }
+
+    function applyElevationDisplacement() {
+      if (!terrainGeometry || !rawElevations) return;
+
+      const exag = parseFloat(document.getElementById('exag-slider').value);
+      const pos = terrainGeometry.attributes.position;
+      const w = currentManifest.width;
+      const h = currentManifest.height;
+
+      for (let i = 0; i < pos.count; i++) {
+        const val = rawElevations[i];
+        // Displace Y (vertical axis in Three.js after X rotation)
+        const displacedY = (val - baseDatum) * heightScale * exag;
+        pos.setY(i, displacedY);
+      }
+
+      pos.needsUpdate = true;
+      terrainGeometry.computeVertexNormals();
+    }
+
+    function resetCameraView(worldWidth, worldHeight) {
+      const dist = Math.max(worldWidth, worldHeight) * 1.2;
+      camera.position.set(0, dist * 0.75, dist * 0.9);
+      camera.lookAt(0, 0, 0);
+      if (orbitControls) {
+        orbitControls.target.set(0, 0, 0);
+        orbitControls.update();
+      }
+    }
+
+    function updateHUD(manifest) {
+      const geoBadge = document.getElementById('geo-badge');
+      const hudDatum = document.getElementById('hud-datum');
+      const hudSpan = document.getElementById('hud-span');
+      const hudGsd = document.getElementById('hud-gsd');
+
+      if (manifest.is_georeferenced) {
+        geoBadge.style.display = 'inline-block';
+        geoBadge.textContent = 'METRIC DSM (' + manifest.crs + ')';
+        hudDatum.textContent = `SRTM Datum (${manifest.min_elevation_m}m ASL)`;
+        hudSpan.textContent = `${manifest.min_elevation_m}m to ${manifest.max_elevation_m}m (${manifest.elevation_span_m}m span)`;
+        hudGsd.textContent = manifest.gsd_m ? `${manifest.gsd_m} m/pixel` : 'Estimated';
+      } else {
+        geoBadge.style.display = 'none';
+        hudDatum.textContent = 'Relative rDSM (Unitless)';
+        hudSpan.textContent = '0.00 to 1.00 (Normalized)';
+        hudGsd.textContent = 'Non-georeferenced';
+      }
+    }
+
+    function onMouseMove(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      if (!terrainMesh || flythroughActive) return;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(terrainMesh);
+
+      const elevReadout = document.getElementById('cursor-elevation');
+      if (intersects.length > 0 && intersects[0].uv) {
+        const uv = intersects[0].uv;
+        const w = currentManifest.width;
+        const h = currentManifest.height;
+
+        const px = Math.min(w - 1, Math.max(0, Math.floor(uv.x * w)));
+        const py = Math.min(h - 1, Math.max(0, Math.floor((1 - uv.y) * h)));
+        const idx = py * w + px;
+
+        if (rawElevations && idx < rawElevations.length) {
+          const elev = rawElevations[idx];
+          if (currentManifest.is_georeferenced) {
+            elevReadout.textContent = `${elev.toFixed(1)} m ASL`;
+          } else {
+            elevReadout.textContent = `${(elev * 100).toFixed(1)}% Relative`;
+          }
+        }
+      } else {
+        elevReadout.textContent = '--';
+      }
+    }
+
+    function setupUIEventListeners() {
+      // Exaggeration Slider
+      const exagSlider = document.getElementById('exag-slider');
+      const exagVal = document.getElementById('exag-val');
+      exagSlider.addEventListener('input', () => {
+        exagVal.textContent = parseFloat(exagSlider.value).toFixed(1) + 'x';
+        applyElevationDisplacement();
+      });
+
+      // Sun Azimuth & Elevation
+      const sunSlider = document.getElementById('sun-slider');
+      const sunVal = document.getElementById('sun-val');
+      const sunElevSlider = document.getElementById('sun-elev-slider');
+      const sunElevVal = document.getElementById('sun-elev-val');
+
+      function onSunChange() {
+        sunVal.textContent = sunSlider.value + '°';
+        sunElevVal.textContent = sunElevSlider.value + '°';
+        updateSunPosition(parseFloat(sunSlider.value), parseFloat(sunElevSlider.value));
+      }
+      sunSlider.addEventListener('input', onSunChange);
+      sunElevSlider.addEventListener('input', onSunChange);
+
+      // Camera Mode Toggle
+      const btnOrbit = document.getElementById('btn-orbit');
+      const btnFly = document.getElementById('btn-fly');
+      const crosshair = document.getElementById('crosshair');
+      const flyHint = document.getElementById('flythrough-hint');
+
+      btnOrbit.addEventListener('click', () => {
+        flythroughActive = false;
+        flyControls.unlock();
+        orbitControls.enabled = true;
+        btnOrbit.classList.add('active');
+        btnFly.classList.remove('active');
+        crosshair.style.display = 'none';
+        flyHint.style.display = 'none';
+      });
+
+      btnFly.addEventListener('click', () => {
+        flythroughActive = true;
+        orbitControls.enabled = false;
+        btnFly.classList.add('active');
+        btnOrbit.classList.remove('active');
+        crosshair.style.display = 'block';
+        flyHint.style.display = 'block';
+        flyControls.lock();
+      });
+
+      flyControls.addEventListener('unlock', () => {
+        if (flythroughActive) {
+          btnOrbit.click();
+        }
+      });
+
+      // Wireframe Toggle
+      const btnWireframe = document.getElementById('btn-wireframe');
+      btnWireframe.addEventListener('click', () => {
+        isWireframe = !isWireframe;
+        if (terrainMaterial) terrainMaterial.wireframe = isWireframe;
+        btnWireframe.classList.toggle('active', isWireframe);
+      });
+
+      // Reset View
+      document.getElementById('btn-reset-view').addEventListener('click', () => {
+        if (currentManifest) {
+          const worldScale = 500;
+          resetCameraView(worldScale, worldScale / currentManifest.aspect_ratio);
+        }
+      });
+
+      // File Input Change
+      document.getElementById('file-input').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          uploadFile(e.target.files[0]);
+        }
+      });
+    }
+
+    function setupFlythroughKeys() {
+      const onKeyDown = (event) => {
+        switch (event.code) {
+          case 'KeyW': moveState.forward = true; break;
+          case 'KeyS': moveState.backward = true; break;
+          case 'KeyA': moveState.left = true; break;
+          case 'KeyD': moveState.right = true; break;
+          case 'Space': moveState.up = true; break;
+          case 'KeyC': moveState.down = true; break;
+        }
+      };
+      const onKeyUp = (event) => {
+        switch (event.code) {
+          case 'KeyW': moveState.forward = false; break;
+          case 'KeyS': moveState.backward = false; break;
+          case 'KeyA': moveState.left = false; break;
+          case 'KeyD': moveState.right = false; break;
+          case 'Space': moveState.up = false; break;
+          case 'KeyC': moveState.down = false; break;
+        }
+      };
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+    }
+
+    function setupDragAndDrop() {
+      const overlay = document.getElementById('dropzone-overlay');
+      window.addEventListener('dragenter', (e) => { e.preventDefault(); overlay.classList.add('active'); });
+      overlay.addEventListener('dragover', (e) => { e.preventDefault(); });
+      overlay.addEventListener('dragleave', (e) => { e.preventDefault(); overlay.classList.remove('active'); });
+      overlay.addEventListener('drop', (e) => {
+        e.preventDefault();
+        overlay.classList.remove('active');
+        if (e.dataTransfer.files.length > 0) {
+          uploadFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    async function uploadFile(file) {
+      showLoading(true, `Processing ${file.name} with AI Pipeline...`);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch("/api/process", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || "Upload processing failed");
+        }
+
+        const data = await response.json();
+        await loadTerrainJob(data.job_id);
+      } catch (err) {
+        alert("Pipeline error: " + err.message);
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show, text = "Loading...") {
+      const scrim = document.getElementById('loading-scrim');
+      const textElem = document.getElementById('loading-text');
+      if (text) textElem.textContent = text;
+      scrim.style.display = show ? 'flex' : 'none';
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+
+      // Handle Flythrough Movement
+      if (flythroughActive && flyControls.isLocked) {
+        const speed = 180.0;
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+        velocity.y -= velocity.y * 10.0 * delta;
+
+        direction.z = Number(moveState.forward) - Number(moveState.backward);
+        direction.x = Number(moveState.right) - Number(moveState.left);
+        direction.y = Number(moveState.up) - Number(moveState.down);
+        direction.normalize();
+
+        if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
+        if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
+        if (moveState.up || moveState.down) velocity.y += direction.y * speed * delta;
+
+        flyControls.moveRight(-velocity.x);
+        flyControls.moveForward(-velocity.z);
+        camera.position.y += velocity.y;
+      } else if (orbitControls && orbitControls.enabled) {
+        orbitControls.update();
+      }
+
+      renderer.render(scene, camera);
+
+      // FPS calculation
+      frameCount++;
+      if (time >= lastFpsTime + 1000) {
+        const fps = Math.round((frameCount * 1000) / (time - lastFpsTime));
+        document.getElementById('fps-stat').textContent = `${fps} FPS`;
+        frameCount = 0;
+        lastFpsTime = time;
+      }
+
+      prevTime = time;
+    }
+
+    init();
+  </script>
+</body>
+</html>
