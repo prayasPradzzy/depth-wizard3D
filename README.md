@@ -1,4 +1,4 @@
-# DepthWizard 🪄
+# DepthWizard
 
 > **Smart India Hackathon 2026** · **Problem Statement 26175** · **Organization: ISRO**  
 > **Single-View Height Estimation and Real-Time 3D Browser Flythrough**
@@ -11,106 +11,187 @@
 
 ---
 
-## 🚀 What is DepthWizard?
+## What is DepthWizard?
 
-DepthWizard takes a **SINGLE optical RGB satellite or aerial drone image** (with zero stereo pairs and zero LiDAR) and:
-1. **Estimates a relative Digital Surface Model (rDSM)** using Depth Anything V2 with robust 2nd/98th percentile outlier suppression.
-2. **Calibrates relative depth into absolute metric elevations (metres)** for georeferenced GeoTIFFs via **Stratified RANSAC Regression** anchored to spaceborne **SRTM 30m** reference data.
-3. **Renders an interactive, photorealistic 3D flythrough in the browser** using Three.js with dynamic sun shadows, real-time elevation readouts, and drag-and-drop processing.
-4. **Requires Zero Installation for Judges**: No Unity, no heavy desktop software, no npm build step. Runs entirely on standard WebGL2.
+DepthWizard is a monocular terrain reconstruction pipeline that turns a **single RGB satellite or aerial image** into a navigable 3D representation, without requiring stereo imagery or LiDAR.
+
+The system combines monocular depth estimation, satellite elevation data, and browser-based 3D rendering into a single workflow:
+
+1. **Relative depth estimation**  
+   Depth Anything V2 is used to estimate a relative Digital Surface Model (rDSM) from the input image. The depth output is normalized using robust 2nd and 98th percentile clipping to reduce the effect of extreme values.
+
+2. **Metric elevation calibration**  
+   For georeferenced GeoTIFF inputs, relative depth is converted into metric elevations using a stratified RANSAC regression model. The calibration is anchored against SRTM 30m elevation data retrieved through OpenTopography.
+
+3. **Interactive 3D visualization**  
+   The resulting terrain is rendered directly in the browser using Three.js. The viewer supports orbit controls, WASD flythrough, dynamic sun lighting, vertical exaggeration, and real-time elevation readouts.
+
+4. **Browser-based workflow**  
+   There is no requirement for Unity, a desktop GIS application, or a frontend build system. The viewer runs directly in a WebGL2-compatible browser, while processing is handled by the FastAPI backend.
 
 ---
 
-## ⚡ 60-Second Quickstart
+## Quickstart
 
-### 1. Launch Server (Single Command)
+### 1. Start the server
+
+From the project directory:
+
 ```powershell
-# Activate environment and start the master server
 .\.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 2. Open Viewer in Browser
-👉 Navigate to: **`http://localhost:8000`**
+### 2. Open the viewer
+
+Open:
+
+```text
+http://localhost:8000
+```
+
+The browser interface provides the complete visualization and image-processing workflow.
 
 ---
 
-## 🎯 The 60-Second Jury Demo Script
+## Demo Flow
 
-*Follow these exact steps during your hackathon presentation to impress the judges:*
+A short demonstration can be structured around the following workflow:
 
-| Time | Action | What to Say / Point Out to Judges |
+| Time | Action | What to demonstrate |
 |---|---|---|
-| **0:00 - 0:15** | Open `http://localhost:8000` | *"Judges, you are looking at a single monocular satellite photo of Manhattan transformed into a true 3D terrain mesh. The RGB photo is draped over a 16-bit displacement grid, with zero stepped terracing."* |
-| **0:15 - 0:30** | Drag **Sun Azimuth** and **Vertical Exaggeration** sliders | *"Notice how the lighting responds dynamically. As I adjust the Sun Azimuth, shadows cast naturally off the building facades into the street canyons. The vertical exaggeration slider allows us to amplify subtle topographic features."* |
-| **0:30 - 0:45** | Click **Flythrough Mode** (WASD flight) + Hover cursor | *"Instead of just an orbit view, we built a drone flythrough mode. We can fly between the skyscrapers using WASD. Notice the bottom-left HUD: our raycaster reads the exact elevation under the cursor in real time."* |
-| **0:45 - 1:00** | Drag and drop any image onto the browser | *"The entire pipeline is live. I can drag and drop any satellite image or GeoTIFF onto the canvas. The FastAPI backend extracts relative depth, aligns it with spaceborne SRTM data, and updates the 3D world instantly."* |
+| **0:00 - 0:15** | Open the viewer | Show a single RGB satellite image reconstructed as a 3D terrain mesh. Explain that the geometry is generated from monocular depth rather than stereo or LiDAR data. |
+| **0:15 - 0:30** | Adjust Sun Azimuth and Vertical Exaggeration | Demonstrate the dynamic lighting and the ability to exaggerate terrain features for easier visual interpretation. |
+| **0:30 - 0:45** | Enable Flythrough Mode | Use WASD controls to navigate through the generated environment. Hover over the terrain to demonstrate the real-time elevation readout. |
+| **0:45 - 1:00** | Upload another image | Demonstrate the processing pipeline by dropping a new image into the viewer and showing the resulting 3D reconstruction. |
 
 ---
 
-## 📊 Pitch-Deck Gap Analysis (Requirements vs. Delivered)
+## Requirements vs. Current Implementation
 
-*Use this table directly in your pitch deck to demonstrate engineering discipline and maturity:*
+The following table maps the current prototype against the main requirements of ISRO Problem Statement 26175 and the planned full implementation.
 
-| Problem Statement Requirement (ISRO PS 26175) | Delivered in 4-Day Prototype | 15-Day Full Build Roadmap |
+| Requirement | Current Prototype | Planned Full Build |
 |---|---|---|
-| **Single-View Height Estimation (Optical RGB)** | **Fully Delivered**: Depth Anything V2 monocular backbone with 2/98 percentile normalization. | Multi-scale tiled inference with CLAHE shadow enhancement & LoRA fine-tuning on SpaceNet. |
-| **Absolute Metric Elevation (metres)** | **Fully Delivered**: Stratified RANSAC regression anchored to global SRTM 30m data via OpenTopography API. | Integration with NASA ICESat-2 (ATL08) spaceborne photon LiDAR transects for non-circular ground validation. |
-| **Non-Georeferenced Input Mode** | **Fully Delivered**: Automatic detection routing PNG/JPG to unitless relative rDSM (0–1). | Automatic optical GSD estimation from building footprint priors. |
-| **Georeferenced GeoTIFF Mode** | **Fully Delivered**: Native `rasterio` ingestion, CRS verification, spatial reprojection, and export to GeoTIFF DSM (`_dsm.tif`). | Multi-band multispectral support (Sentinel-2, Cartosat-3 RPC perspective rectification). |
-| **Navigable 3D Terrain Visualization** | **Fully Delivered**: WebGL Three.js browser viewer with Orbit + WASD flythrough modes, dynamic shadows, and HUD. | Hierarchical Quadtree Level-of-Detail (LOD) for multi-gigabyte regional scale terrains. |
-| **Zero-Client Installation** | **Fully Delivered**: Single-file frontend loaded via CDN importmap. Runs on any browser. | Progressive Web App (PWA) offline caching with WebGPU acceleration. |
+| **Single-View Height Estimation** | Depth Anything V2 monocular depth estimation with 2nd/98th percentile normalization. | Multi-scale tiled inference, CLAHE-based shadow enhancement, and LoRA fine-tuning on relevant datasets. |
+| **Absolute Metric Elevation** | Stratified RANSAC regression calibrated against SRTM 30m data through OpenTopography. | Additional validation using NASA ICESat-2 ATL08 spaceborne LiDAR transects. |
+| **Non-Georeferenced Input** | PNG/JPG inputs are processed into a unitless relative rDSM. | Automatic GSD estimation using image and building-footprint priors. |
+| **Georeferenced GeoTIFF Input** | Rasterio-based ingestion, CRS validation, reprojection, and DSM GeoTIFF export. | Multispectral support and integration with additional satellite products and RPC-based rectification. |
+| **3D Terrain Visualization** | Browser-based Three.js viewer with orbit controls, WASD navigation, dynamic lighting, and elevation HUD. | Quadtree-based Level of Detail for larger regional datasets. |
+| **Zero Client Installation** | Frontend runs directly in a WebGL2-compatible browser using CDN imports. | PWA support, offline caching, and WebGPU acceleration. |
 
 ---
 
-## 🛠️ CLI Pipeline Tools
+## CLI Pipeline
 
-DepthWizard can also be run headlessly from the command line:
+DepthWizard can also be used without the browser interface.
 
-### Stage 1: Relative Depth Extraction (Day 1 CLI)
+### Stage 1: Relative Depth Extraction
+
+Process an individual image or a directory of images:
+
 ```powershell
-# Process single image or folder of images
 .\.venv\Scripts\python.exe run_day1.py data/input/ --outdir data/output/
 ```
-*Outputs: `{stem}_raw.npy`, `{stem}_heightmap.png` (16-bit PNG), `{stem}_turbo.png`, `{stem}_compare.png`.*
 
-### Stage 2: Georeferenced Metric Calibration (Day 2 CLI)
+The pipeline generates:
+
+```text
+{stem}_raw.npy
+{stem}_heightmap.png
+{stem}_turbo.png
+{stem}_compare.png
+```
+
+The heightmap is stored as a 16-bit PNG to preserve more depth information than a standard 8-bit representation.
+
+### Stage 2: Metric Calibration
+
+For georeferenced GeoTIFF processing, configure an OpenTopography API key:
+
 ```powershell
-# Set free OpenTopography API key
 $env:OPENTOPO_API_KEY = "your_key_here"
+```
 
-# Process GeoTIFF into absolute metric DSM
+Then run:
+
+```powershell
 .\.venv\Scripts\python.exe run_day2.py data/input/your_scene.tif --outdir data/output/
 ```
-*Outputs: `{stem}_dsm.tif` (Metric GeoTIFF), `{stem}_dsm.npy`, `{stem}_error_map.png`, `{stem}_validation.json`.*
+
+The pipeline generates:
+
+```text
+{stem}_dsm.tif
+{stem}_dsm.npy
+{stem}_error_map.png
+{stem}_validation.json
+```
+
+The `_dsm.tif` output contains the calibrated metric elevation model.
 
 ---
 
-## 🔬 Automated Regression Test Suite
+## Automated Tests
 
-Verify all mathematical engines, outlier resilience, and WebGL exporters in seconds:
+The repository includes synthetic tests covering the main processing stages and mathematical components.
+
+### Stage 1
+
+Tests percentile-based normalization and 16-bit heightmap generation:
 
 ```powershell
-# 1. Test Stage 1 Outlier Normalization & 16-bit PNG Precision
 .\.venv\Scripts\python.exe tests\test_stage1_synthetic.py
+```
 
-# 2. Test Stage 2 RANSAC Mathematical Parameter Recovery (Slope/Intercept)
+### Stage 2
+
+Tests RANSAC parameter recovery, including slope and intercept estimation:
+
+```powershell
 .\.venv\Scripts\python.exe tests\test_stage2_synthetic.py
+```
 
-# 3. Test Stage 3 Web 3D Asset Downsampling & FastAPI Endpoints
+### Stage 3
+
+Tests Web 3D asset generation, downsampling, and FastAPI endpoints:
+
+```powershell
 .\.venv\Scripts\python.exe tests\test_stage3_export.py
 ```
 
 ---
 
-## 📚 Technical Documentation
+## Technical Documentation
 
-- [**`docs/ARCHITECTURE.md`**](docs/ARCHITECTURE.md): Complete pipeline diagrams and deep-dive defenses of every design decision (Depth Anything V2 vs MiDaS, RANSAC vs OLS, Three.js vs Unity).
-- [**`docs/LIMITATIONS.md`**](docs/LIMITATIONS.md): Transparent engineering disclosures of system boundaries (circular validation, DEM vs DSM) and our 15-day build solutions.
-- [**`docs/RESULTS.md`**](docs/RESULTS.md): Master validation metrics table across diverse test imagery and intentional failure modes.
+Additional technical details are available in the `docs/` directory:
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)  
+  System architecture, processing pipeline, and design decisions, including the reasoning behind Depth Anything V2, RANSAC, and Three.js.
+
+- [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md)  
+  Known limitations and current system boundaries, including the distinction between DEM and DSM data and the limitations of the current validation approach.
+
+- [`docs/RESULTS.md`](docs/RESULTS.md)  
+  Validation results across different test images, including selected failure cases and error measurements.
 
 ---
 
-## 👥 Authors & Acknowledgments
+## Project Stack
 
-Built for **Smart India Hackathon 2026** under **Problem Statement 26175 (ISRO)**.  
-*Powered by Depth Anything V2, OpenTopography SRTMGL1, Rasterio, FastAPI, and Three.js.*
+| Component | Technology |
+|---|---|
+| Backend | FastAPI |
+| Depth Estimation | Depth Anything V2 |
+| Raster Processing | Rasterio |
+| Elevation Reference | SRTM 30m / OpenTopography |
+| 3D Rendering | Three.js |
+| Browser Graphics | WebGL2 |
+| Language | Python / JavaScript |
+
+---
+
+## Authors & Acknowledgments
+
+Built for **Smart India Hackathon 2026**, Problem Statement 26175, under **ISRO**.
+
+The project uses and builds upon **Depth Anything V2, SRTMGL1, OpenTopography, Rasterio, FastAPI, and Three.js**.
