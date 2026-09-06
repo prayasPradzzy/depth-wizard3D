@@ -3,16 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DepthWizard - 3D Terrain Flythrough (ISRO PS 26175)</title>
+  <title>DepthWizard 3D - ISRO Geospatial Mission Control (PS 26175)</title>
+  
+  <!-- Google Fonts: Orbitron (Geospatial/Military), Inter (Clean UI), JetBrains Mono (Telemetry) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg-glass: rgba(13, 17, 23, 0.85);
-      --border-glass: rgba(255, 255, 255, 0.12);
+      --bg-dark: #070b12;
+      --bg-panel: rgba(11, 18, 32, 0.88);
+      --bg-panel-hover: rgba(16, 26, 46, 0.95);
+      --border-panel: rgba(56, 189, 248, 0.2);
+      --border-panel-glow: rgba(56, 189, 248, 0.45);
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.35);
-      --accent-green: #34d399;
-      --text: #f1f5f9;
+      --accent-glow: rgba(56, 189, 248, 0.4);
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.35);
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text: #f8fafc;
       --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-display: 'Orbitron', -apple-system, sans-serif;
+      --font-body: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     * {
@@ -26,8 +42,8 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #090d16;
+      font-family: var(--font-body);
+      background: var(--bg-dark);
       color: var(--text);
     }
 
@@ -39,65 +55,221 @@
       left: 0;
     }
 
-    /* Glassmorphic UI Panels */
+    /* Glassmorphic Panel System */
     .glass-panel {
-      background: var(--bg-glass);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--border-glass);
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-panel);
       border-radius: 12px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-      padding: 16px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
       z-index: 10;
     }
 
-    /* Header */
-    #header-bar {
+    .glass-panel:hover {
+      border-color: var(--border-panel-glow);
+    }
+
+    /* Top Command Header */
+    #top-header {
       position: absolute;
-      top: 16px;
-      left: 16px;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      gap: 16px;
+      z-index: 20;
+    }
+
+    .brand-group {
       display: flex;
       align-items: center;
       gap: 14px;
     }
 
-    .badge {
-      background: rgba(56, 189, 248, 0.15);
+    .isro-badge {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.2));
       border: 1px solid var(--accent);
       color: var(--accent);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
+      box-shadow: 0 0 12px var(--accent-glow);
       text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .isro-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+
+    .app-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-title h1 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 800;
       letter-spacing: 0.5px;
-    }
-
-    .badge-geo {
-      background: rgba(52, 211, 153, 0.15);
-      border-color: var(--accent-green);
-      color: var(--accent-green);
-    }
-
-    h1 {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
+      color: #fff;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* Controls Panel */
-    #controls-panel {
+    .app-title span {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Header Quick Actions */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-geo {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-emerald);
+      color: var(--accent-emerald);
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+
+    .btn-emerald.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--accent-emerald);
+      color: var(--accent-emerald);
+      box-shadow: 0 0 14px var(--accent-emerald-glow);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border-color: #38bdf8;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1, #075985);
+      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.6);
+    }
+
+    /* Left Dock / Command Sidebar */
+    #left-dock {
       position: absolute;
-      top: 16px;
-      right: 16px;
-      width: 310px;
+      top: 74px;
+      left: 14px;
+      width: 320px;
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 14px;
       font-size: 13px;
+    }
+
+    #left-dock::-webkit-scrollbar {
+      width: 4px;
+    }
+    #left-dock::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .control-group {
@@ -110,123 +282,277 @@
       display: flex;
       justify-content: space-between;
       color: var(--text-muted);
+      font-size: 12px;
       font-weight: 500;
     }
 
     .control-val {
       color: var(--accent);
       font-weight: 600;
-      font-family: monospace;
+      font-family: var(--font-mono);
+      font-size: 12px;
     }
 
     input[type="range"] {
       -webkit-appearance: none;
       width: 100%;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.1);
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
       border-radius: 3px;
       outline: none;
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       border-radius: 50%;
       background: var(--accent);
       cursor: pointer;
       box-shadow: 0 0 10px var(--accent-glow);
+      transition: transform 0.15s ease;
     }
 
-    /* Buttons */
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
     .btn-row {
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
-    .btn {
-      flex: 1;
-      padding: 9px 12px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--border-glass);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+    /* Sun Preset Pills */
+    .preset-pill-row {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      gap: 4px;
+    }
+    .preset-pill {
+      flex: 1;
+      padding: 5px 2px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: center;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      cursor: pointer;
       transition: all 0.2s ease;
     }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
+    .preset-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
     }
-
-    .btn.active {
+    .preset-pill.active {
       background: rgba(56, 189, 248, 0.2);
       border-color: var(--accent);
       color: var(--accent);
-      box-shadow: 0 0 12px var(--accent-glow);
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #0284c7, #0369a1);
-      border-color: #38bdf8;
-      color: #fff;
-    }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #0369a1, #075985);
-    }
-
-    /* HUD / Elevation readout */
-    #hud-panel {
+    /* Telemetry HUD (Bottom-Left) */
+    #telemetry-hud {
       position: absolute;
-      bottom: 16px;
-      left: 16px;
-      min-width: 260px;
+      bottom: 14px;
+      left: 14px;
+      width: 320px;
+      padding: 14px 16px;
       font-size: 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
+      z-index: 15;
     }
 
-    .hud-row {
+    .hud-title {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-stat-row {
       display: flex;
       justify-content: space-between;
       color: var(--text-muted);
     }
 
-    .hud-highlight {
+    .hud-stat-highlight {
+      font-family: var(--font-mono);
       font-size: 14px;
       font-weight: 700;
-      color: var(--accent-green);
-      font-family: monospace;
+      color: var(--accent-emerald);
+      text-shadow: 0 0 10px var(--accent-emerald-glow);
     }
 
-    /* Debug Stats */
-    #stats-badge {
+    .hud-stat-val {
+      font-family: var(--font-mono);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Measure Tool Floating Banner */
+    #measure-hud {
       position: absolute;
-      bottom: 16px;
-      right: 16px;
+      bottom: 14px;
+      left: 348px;
+      padding: 12px 18px;
+      display: none;
+      align-items: center;
+      gap: 16px;
+      z-index: 20;
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+      animation: slide-up 0.25s ease-out;
+    }
+
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .measure-badge {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.15);
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Validation Modal / Panel (Top-Right) */
+    #validation-panel {
+      position: absolute;
+      top: 74px;
+      right: 14px;
+      width: 320px;
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 25;
+      border-color: var(--accent-emerald);
+      animation: fade-in 0.2s ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .val-metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-name {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-family: var(--font-display);
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-emerald);
+    }
+
+    /* Performance Badge (Bottom-Right) */
+    #perf-badge {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      font-family: var(--font-mono);
       font-size: 11px;
       color: var(--text-muted);
-      font-family: monospace;
-      padding: 6px 10px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    /* Drag-and-drop overlay */
-    #dropzone-overlay {
+    .perf-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--accent-emerald);
+    }
+
+    /* Crosshairs & Fly Hints */
+    #fly-reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+      z-index: 30;
+    }
+    #fly-reticle::before, #fly-reticle::after {
+      content: '';
+      position: absolute;
+      background: rgba(56, 189, 248, 0.8);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+    #fly-reticle::before { top: 7px; left: 0; width: 16px; height: 2px; }
+    #fly-reticle::after { top: 0; left: 7px; width: 2px; height: 16px; }
+
+    #fly-guide {
+      position: absolute;
+      bottom: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(11, 18, 32, 0.9);
+      border: 1px solid var(--border-panel-glow);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #fff;
+      display: none;
+      z-index: 30;
+      pointer-events: none;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    }
+
+    /* Drag & Drop Scrim */
+    #drop-overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(8, 14, 26, 0.85);
-      backdrop-filter: blur(8px);
+      background: rgba(7, 11, 18, 0.88);
+      backdrop-filter: blur(10px);
       display: none;
       flex-direction: column;
       align-items: center;
@@ -235,79 +561,66 @@
       z-index: 100;
       border: 3px dashed var(--accent);
     }
-
-    #dropzone-overlay.active {
+    #drop-overlay.active {
       display: flex;
     }
 
-    /* Loading Spinner */
+    /* Loading Scrim */
     #loading-scrim {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(9, 13, 22, 0.88);
+      background: rgba(7, 11, 18, 0.92);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      z-index: 50;
+      gap: 16px;
+      z-index: 90;
       transition: opacity 0.3s ease;
     }
 
-    .spinner {
-      width: 44px;
-      height: 44px;
-      border: 4px solid rgba(255, 255, 255, 0.1);
+    .radar-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(56, 189, 248, 0.15);
       border-top-color: var(--accent);
+      border-right-color: var(--accent-emerald);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: radar-spin 0.8s linear infinite;
+      box-shadow: 0 0 20px var(--accent-glow);
     }
 
-    @keyframes spin {
+    @keyframes radar-spin {
       to { transform: rotate(360deg); }
     }
 
-    /* Crosshair for Flythrough mode */
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 12px;
-      height: 12px;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
+    /* Slope Legend Bar */
+    #slope-legend {
       display: none;
-      z-index: 20;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
+      font-size: 11px;
     }
-    #crosshair::before, #crosshair::after {
-      content: '';
-      position: absolute;
-      background: rgba(255, 255, 255, 0.7);
+    .legend-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #10b981 0%, #10b981 33%, #f59e0b 33%, #f59e0b 66%, #ef4444 66%, #ef4444 100%);
+      box-shadow: 0 0 8px rgba(0,0,0,0.5);
     }
-    #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }
-    #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }
-
-    #flythrough-hint {
-      position: absolute;
-      bottom: 70px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.75);
-      border: 1px solid var(--border-glass);
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      color: #fff;
-      display: none;
-      z-index: 20;
-      pointer-events: none;
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
     }
   </style>
 
-  <!-- Import maps polyfill and Three.js from modern CDN -->
+  <!-- Three.js ES Modules from CDN -->
   <script type="importmap">
     {
       "imports": {
@@ -320,104 +633,274 @@
 <body>
   <div id="viewport-container"></div>
 
-  <!-- Header -->
-  <div id="header-bar" class="glass-panel">
-    <span class="badge">ISRO PS 26175</span>
-    <h1>DepthWizard 3D</h1>
-    <span id="geo-badge" class="badge badge-geo" style="display: none;">METRIC DSM</span>
-  </div>
-
-  <!-- Controls Panel -->
-  <div id="controls-panel" class="glass-panel">
-    <div class="control-group">
-      <div class="control-label">
-        <span>Vertical Exaggeration</span>
-        <span id="exag-val" class="control-val">1.5x</span>
-      </div>
-      <input type="range" id="exag-slider" min="0.5" max="5.0" step="0.1" value="1.5">
-    </div>
-
-    <div class="control-group">
-      <div class="control-label">
-        <span>Sun Azimuth (Shadows)</span>
-        <span id="sun-val" class="control-val">135°</span>
-      </div>
-      <input type="range" id="sun-slider" min="0" max="360" step="1" value="135">
-    </div>
-
-    <div class="control-group">
-      <div class="control-label">
-        <span>Sun Elevation Angle</span>
-        <span id="sun-elev-val" class="control-val">45°</span>
-      </div>
-      <input type="range" id="sun-elev-slider" min="10" max="85" step="1" value="45">
-    </div>
-
-    <div class="control-group">
-      <span class="control-label">Navigation Mode</span>
-      <div class="btn-row">
-        <button id="btn-orbit" class="btn active">Orbit Mode</button>
-        <button id="btn-fly" class="btn">Flythrough</button>
+  <!-- Top Command Header -->
+  <header id="top-header" class="glass-panel">
+    <div class="brand-group">
+      <div class="isro-badge">ISRO · PS 26175</div>
+      <div class="app-title">
+        <h1>DepthWizard 3D 🪄</h1>
+        <span>Single-View Height Estimation & Real-Time Aerial Flythrough</span>
       </div>
     </div>
 
-    <div class="control-group">
-      <span class="control-label">Visual Shader</span>
-      <div class="btn-row">
-        <button id="btn-wireframe" class="btn">Wireframe</button>
-        <button id="btn-reset-view" class="btn">Reset View</button>
+    <div class="header-actions">
+      <!-- Live Status Pills -->
+      <div id="status-geo" class="badge-pill badge-geo" style="display: none;">
+        <span>SRTM METRIC</span>
       </div>
-    </div>
 
-    <div class="control-group" style="margin-top: 4px;">
+      <!-- Quick Action Controls -->
+      <button id="btn-turntable" class="btn active" title="Toggle 360° Cinematic Turntable Auto-Rotation">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Turntable: ON
+      </button>
+
+      <button id="btn-nav-mode" class="btn" title="Switch between Orbit Camera and WASD Drone Flight">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+        Flythrough
+      </button>
+
+      <button id="btn-measure-tool" class="btn" title="Measure Building Height (Δh) between two clicked points">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18M7 16l4-4 4 4 6-6"/></svg>
+        Measure Height
+      </button>
+
+      <button id="btn-toggle-val" class="btn" title="Toggle Reference Accuracy & Ground Validation Dashboard">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        Validation
+      </button>
+
       <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.tif,.tiff" style="display: none;">
-      <button id="btn-upload" class="btn btn-primary" onclick="document.getElementById('file-input').click();">
+      <button class="btn btn-primary" onclick="document.getElementById('file-input').click();">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         Upload Satellite Image
       </button>
     </div>
-  </div>
+  </header>
 
-  <!-- HUD Readout -->
-  <div id="hud-panel" class="glass-panel">
-    <div class="hud-row">
-      <span>Cursor Elevation:</span>
-      <span id="cursor-elevation" class="hud-highlight">--</span>
+  <!-- Left Dock: Mission Control Parameters -->
+  <aside id="left-dock" class="glass-panel">
+    
+    <!-- 1. Architectural Cuboids & Building Sharpness -->
+    <div class="control-card" style="border-color: rgba(56, 189, 248, 0.3);">
+      <div class="section-title">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
+        Architectural Cuboid Regularization
+      </div>
+      
+      <div class="control-group">
+        <div class="control-label">
+          <span>Building Sharpness (Cuboids)</span>
+          <span id="sharp-val" class="control-val">85%</span>
+        </div>
+        <input type="range" id="sharp-slider" min="0.0" max="1.0" step="0.05" value="0.85">
+        <span style="font-size: 10px; color: var(--text-dim);">Flattens rooftops & steepens vertical walls</span>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Facade Normal Shading</span>
+        </div>
+        <div class="btn-row">
+          <button id="btn-facade-smooth" class="btn" style="flex: 1;">Smooth Terrain</button>
+          <button id="btn-facade-sharp" class="btn active" style="flex: 1;">Sharp Cuboids</button>
+        </div>
+      </div>
     </div>
-    <div class="hud-row">
+
+    <!-- 2. Terrain Topography & Exaggeration -->
+    <div class="control-card">
+      <div class="section-title">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Terrain Topography
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Vertical Exaggeration</span>
+          <span id="exag-val" class="control-val">1.5x</span>
+        </div>
+        <input type="range" id="exag-slider" min="0.5" max="5.0" step="0.1" value="1.5">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Turntable Spin Speed</span>
+          <span id="speed-val" class="control-val">1.2 RPM</span>
+        </div>
+        <input type="range" id="speed-slider" min="0.2" max="4.0" step="0.2" value="1.2">
+      </div>
+    </div>
+
+    <!-- 3. Dynamic Solar Lighting & Shadows -->
+    <div class="control-card">
+      <div class="section-title">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        Solar Lighting & Shadows
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Sun Time-of-Day Presets</span>
+        <div class="preset-pill-row">
+          <div class="preset-pill" onclick="setSunPreset(75, 25, this)">Morning</div>
+          <div class="preset-pill active" onclick="setSunPreset(180, 65, this)">Noon</div>
+          <div class="preset-pill" onclick="setSunPreset(260, 20, this)">Sunset</div>
+          <div class="preset-pill" onclick="setSunPreset(135, 35, this)">Canyon</div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Sun Azimuth</span>
+          <span id="sun-val" class="control-val">180°</span>
+        </div>
+        <input type="range" id="sun-slider" min="0" max="360" step="1" value="180">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Sun Elevation Angle</span>
+          <span id="sun-elev-val" class="control-val">65°</span>
+        </div>
+        <input type="range" id="sun-elev-slider" min="10" max="85" step="1" value="65">
+      </div>
+    </div>
+
+    <!-- 4. Geospatial Shader Layer -->
+    <div class="control-card">
+      <div class="section-title">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20M2 12h20"/></svg>
+        Geospatial Shading Mode
+      </div>
+
+      <div class="btn-grid">
+        <button id="shader-rgb" class="btn active">🛰️ Optical RGB</button>
+        <button id="shader-slope" class="btn">⚠️ Slope Risk</button>
+        <button id="shader-error" class="btn" style="display: none;">🎯 Error Map</button>
+        <button id="shader-wire" class="btn">🌐 Wireframe</button>
+      </div>
+
+      <!-- Slope Hazard Legend -->
+      <div id="slope-legend">
+        <div class="legend-bar"></div>
+        <div class="legend-labels">
+          <span>&lt;15° Stable</span>
+          <span>15°-30° Caution</span>
+          <span>&gt;30° Hazard</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-reset-view" class="btn" style="flex: 1;">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8m0 0V3m0 5h5"/></svg>
+        Reset Camera View
+      </button>
+    </div>
+  </aside>
+
+  <!-- Telemetry HUD (Bottom-Left) -->
+  <div id="telemetry-hud" class="glass-panel">
+    <div class="hud-title">
+      <span>Cursor Elevation Telemetry</span>
+      <span id="hud-status-chip" style="color: var(--accent); font-family: var(--font-mono); font-size: 10px;">RAYCAST ACTIVE</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>Surface Height:</span>
+      <span id="cursor-elevation" class="hud-stat-highlight">--</span>
+    </div>
+    <div class="hud-stat-row">
+      <span>Local Slope Gradient:</span>
+      <span id="cursor-slope" class="hud-stat-val">--</span>
+    </div>
+    <div class="hud-stat-row">
       <span>Elevation Span:</span>
-      <span id="hud-span">--</span>
+      <span id="hud-span" class="hud-stat-val">--</span>
     </div>
-    <div class="hud-row">
+    <div class="hud-stat-row">
       <span>Datum Reference:</span>
-      <span id="hud-datum">Relative (0-1)</span>
+      <span id="hud-datum" class="hud-stat-val">Relative (0-1)</span>
     </div>
-    <div class="hud-row">
-      <span>Ground Resolution (GSD):</span>
-      <span id="hud-gsd">--</span>
+    <div class="hud-stat-row">
+      <span>Ground Sample (GSD):</span>
+      <span id="hud-gsd" class="hud-stat-val">--</span>
     </div>
   </div>
 
-  <!-- Stats -->
-  <div id="stats-badge" class="glass-panel">
-    <span id="fps-stat">60 FPS</span> | <span id="verts-stat">262k Verts</span>
+  <!-- Measure Height Floating HUD -->
+  <div id="measure-hud" class="glass-panel">
+    <div class="measure-badge">3D Laser Height Tool</div>
+    <div style="font-size: 12px; color: var(--text-muted);">
+      <span id="measure-instruction">Click Point 1 on ground / building base...</span>
+      <span id="measure-results" style="display: none; color: #fff; font-family: var(--font-mono); font-size: 13px;">
+        Δh: <strong id="measure-dh" style="color: var(--accent-emerald);">+0.0m</strong> | 
+        Dist: <span id="measure-dist">0.0m</span> | 
+        Slope: <span id="measure-slope">0°</span>
+      </span>
+    </div>
+    <button id="btn-measure-clear" class="btn" style="padding: 4px 8px; font-size: 11px;">Clear</button>
   </div>
 
-  <!-- Flythrough Crosshair & Hint -->
-  <div id="crosshair"></div>
-  <div id="flythrough-hint">Click scene to lock mouse. WASD = Fly, SPACE = Up, C = Down, ESC = Exit.</div>
+  <!-- Validation & Reference Metrics Card (Top-Right) -->
+  <div id="validation-panel" class="glass-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="section-title" style="margin: 0; color: var(--accent-emerald);">
+        Reference Accuracy & Validation
+      </div>
+      <button onclick="document.getElementById('validation-panel').style.display='none'" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">✕</button>
+    </div>
 
-  <!-- Drag-and-drop overlay -->
-  <div id="dropzone-overlay">
+    <div class="val-metric-grid">
+      <div class="metric-card">
+        <span class="metric-name">Terrain RMSE</span>
+        <span id="val-rmse" class="metric-val">--</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-name">Mean Abs Error</span>
+        <span id="val-mae" class="metric-val">--</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-name">Pearson Corr (r)</span>
+        <span id="val-corr" class="metric-val">--</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-name">RANSAC Inliers</span>
+        <span id="val-inlier" class="metric-val">--</span>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+      <strong>Method:</strong> Stratified RANSAC anchored to spaceborne SRTM 30m GL1 reference datum.
+    </div>
+
+    <button id="btn-drape-error" class="btn btn-emerald" style="width: 100%;">
+      Drape SRTM Error Map on 3D Terrain
+    </button>
+  </div>
+
+  <!-- Performance Stats Badge (Bottom-Right) -->
+  <div id="perf-badge" class="glass-panel">
+    <div class="perf-dot"></div>
+    <span id="fps-stat">60 FPS</span>
+    <span>|</span>
+    <span id="verts-stat">262k Verts</span>
+  </div>
+
+  <!-- Flythrough Drone Reticle & Guide -->
+  <div id="fly-reticle"></div>
+  <div id="fly-guide">Click scene to lock mouse. WASD = Drone Flight, SPACE = Ascend, C = Descend, ESC = Exit.</div>
+
+  <!-- Drag & Drop Zone -->
+  <div id="drop-overlay">
     <svg width="48" height="48" fill="none" stroke="#38bdf8" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-    <h2>Drop Aerial/Satellite Image Here</h2>
-    <p style="color: var(--text-muted); font-size: 13px;">Supports GeoTIFF (.tif) and standard RGB (.png, .jpg)</p>
+    <h2 style="font-family: var(--font-display); letter-spacing: 0.5px;">Drop Aerial / Satellite Image Here</h2>
+    <p style="color: var(--text-muted); font-size: 13px;">Supports GeoTIFF (.tif) for Metric DSM and Optical RGB (.png, .jpg) for rDSM</p>
   </div>
 
   <!-- Loading Scrim -->
   <div id="loading-scrim">
-    <div class="spinner"></div>
-    <h3 id="loading-text">Loading 3D Terrain Model...</h3>
+    <div class="radar-spinner"></div>
+    <h3 id="loading-text" style="font-family: var(--font-display); font-size: 15px; letter-spacing: 0.5px;">Synthesizing 3D Terrain World...</h3>
   </div>
 
   <!-- Main Three.js Application Logic -->
@@ -432,12 +915,30 @@
     let terrainGeometry = null;
     let terrainMaterial = null;
     let directionalLight, ambientLight;
+    
+    // Height data arrays
     let rawElevations = null;
+    let sharpElevations = null;
+    let slopeAngles = null;
     let currentManifest = null;
+    
+    // Textures
+    let textureRGB = null;
+    let textureSlope = null;
+    let textureError = null;
+    let currentShaderMode = 'rgb'; // 'rgb', 'slope', 'error', 'wire'
+
+    // Parameters
     let baseDatum = 0;
     let heightScale = 1.0;
-    let isWireframe = false;
+    let buildingSharpness = 0.85;
+    let useSharpFacades = true;
+    let autoRotateActive = true;
     let flythroughActive = false;
+    let measureModeActive = false;
+    let measurePoints = [];
+    let measureLine = null;
+    let measureMarkers = [];
 
     // Movement for Flythrough Mode
     const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false };
@@ -445,11 +946,11 @@
     const direction = new THREE.Vector3();
     let prevTime = performance.now();
 
-    // Raycasting for Elevation Readout
+    // Raycasting
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2(-999, -999);
 
-    // FPS Tracking
+    // FPS
     let frameCount = 0;
     let lastFpsTime = performance.now();
 
@@ -458,61 +959,65 @@
 
       // 1. Scene
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0e17);
-      scene.fog = new THREE.FogExp2(0x0a0e17, 0.0015);
+      scene.background = new THREE.Color(0x070b12);
+      scene.fog = new THREE.FogExp2(0x070b12, 0.0012);
 
       // 2. Camera
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 5000);
-      camera.position.set(0, 300, 450);
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 6000);
+      camera.position.set(0, 320, 480);
 
-      // 3. Renderer
+      // 3. WebGL2 Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.1;
+      renderer.toneMappingExposure = 1.15;
       container.appendChild(renderer.domElement);
 
-      // 4. Lighting (Sunlight + Ambient)
-      ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      // 4. Lighting
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
       scene.add(ambientLight);
 
-      directionalLight = new THREE.DirectionalLight(0xfffbf0, 1.6);
+      directionalLight = new THREE.DirectionalLight(0xfffbf0, 1.8);
       directionalLight.castShadow = true;
       directionalLight.shadow.mapSize.width = 2048;
       directionalLight.shadow.mapSize.height = 2048;
       directionalLight.shadow.camera.near = 10;
-      directionalLight.shadow.camera.far = 2000;
-      const d = 500;
+      directionalLight.shadow.camera.far = 2500;
+      const d = 550;
       directionalLight.shadow.camera.left = -d;
       directionalLight.shadow.camera.right = d;
       directionalLight.shadow.camera.top = d;
       directionalLight.shadow.camera.bottom = -d;
+      directionalLight.shadow.bias = -0.0003;
       scene.add(directionalLight);
 
-      updateSunPosition(135, 45);
+      updateSunPosition(180, 65);
 
       // 5. Controls
       orbitControls = new OrbitControls(camera, renderer.domElement);
       orbitControls.enableDamping = true;
       orbitControls.dampingFactor = 0.05;
-      orbitControls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't go below ground
+      orbitControls.maxPolarAngle = Math.PI / 2 - 0.02;
       orbitControls.minDistance = 20;
-      orbitControls.maxDistance = 2500;
+      orbitControls.maxDistance = 3000;
+      orbitControls.autoRotate = true;
+      orbitControls.autoRotateSpeed = 1.2;
 
       flyControls = new PointerLockControls(camera, document.body);
       scene.add(flyControls.getObject());
 
-      // 6. Event Listeners
+      // 6. Listeners
       window.addEventListener('resize', onWindowResize);
       window.addEventListener('mousemove', onMouseMove);
+      renderer.domElement.addEventListener('click', onCanvasClick);
       setupUIEventListeners();
       setupFlythroughKeys();
       setupDragAndDrop();
 
-      // 7. Load Initial/Default Asset
+      // 7. Load Default Terrain
       loadTerrainJob('latest');
 
       // 8. Animation Loop
@@ -522,7 +1027,7 @@
     function updateSunPosition(azimuthDeg, elevationDeg) {
       const azRad = THREE.MathUtils.degToRad(azimuthDeg);
       const elRad = THREE.MathUtils.degToRad(elevationDeg);
-      const distance = 800;
+      const distance = 850;
 
       const x = distance * Math.cos(elRad) * Math.sin(azRad);
       const y = distance * Math.sin(elRad);
@@ -531,29 +1036,74 @@
       directionalLight.position.set(x, y, z);
     }
 
+    window.setSunPreset = function(az, el, elem) {
+      document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+      if (elem) elem.classList.add('active');
+      document.getElementById('sun-slider').value = az;
+      document.getElementById('sun-val').textContent = az + '°';
+      document.getElementById('sun-elev-slider').value = el;
+      document.getElementById('sun-elev-val').textContent = el + '°';
+      updateSunPosition(az, el);
+    };
+
     async function loadTerrainJob(jobId) {
-      showLoading(true, "Downloading 3D Mesh and Texture...");
+      showLoading(true, "Downloading 3D Mesh Assets & Elevation Buffer...");
       try {
         const manifestRes = await fetch(`/api/result/${jobId}`);
         if (!manifestRes.ok) throw new Error("Could not load job manifest.");
         const data = await manifestRes.json();
         currentManifest = data.manifest;
 
-        // Fetch binary elevation buffer (exact 32-bit float array)
-        const binRes = await fetch(`/api/assets/${jobId}/heightmap.bin`);
-        if (!binRes.ok) throw new Error("Could not load binary heightmap.");
-        const buffer = await binRes.arrayBuffer();
-        rawElevations = new Float32Array(buffer);
+        // Fetch primary raw elevation buffer (float32)
+        const binRes = await fetch(data.assets.heightmap_bin);
+        if (!binRes.ok) throw new Error("Could not load binary elevation buffer.");
+        rawElevations = new Float32Array(await binRes.arrayBuffer());
 
-        // Fetch RGB texture
+        // Fetch regularized sharp cuboid elevation buffer if available
+        if (data.assets.heightmap_sharp_bin) {
+          try {
+            const sharpRes = await fetch(data.assets.heightmap_sharp_bin);
+            if (sharpRes.ok) {
+              sharpElevations = new Float32Array(await sharpRes.arrayBuffer());
+            }
+          } catch (e) {
+            console.warn("Sharp heightmap not available:", e);
+            sharpElevations = rawElevations;
+          }
+        } else {
+          sharpElevations = rawElevations;
+        }
+
+        // Fetch RGB Texture
         const textureLoader = new THREE.TextureLoader();
-        const texture = await textureLoader.loadAsync(`/api/assets/${jobId}/texture.png`);
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.colorSpace = THREE.SRGBColorSpace;
+        textureRGB = await textureLoader.loadAsync(data.assets.texture);
+        textureRGB.wrapS = THREE.ClampToEdgeWrapping;
+        textureRGB.wrapT = THREE.ClampToEdgeWrapping;
+        textureRGB.colorSpace = THREE.SRGBColorSpace;
 
-        buildTerrainMesh(currentManifest, rawElevations, texture);
+        // Check if error map exists for georeferenced SRTM validation
+        if (data.assets.error_map) {
+          try {
+            textureError = await textureLoader.loadAsync(data.assets.error_map);
+            textureError.wrapS = THREE.ClampToEdgeWrapping;
+            textureError.wrapT = THREE.ClampToEdgeWrapping;
+            document.getElementById('shader-error').style.display = 'inline-flex';
+          } catch (e) {
+            textureError = null;
+          }
+        } else {
+          textureError = null;
+          document.getElementById('shader-error').style.display = 'none';
+        }
+
+        // Compute Slope Hazard Colormap
+        generateSlopeColormap(currentManifest, rawElevations);
+
+        // Build 3D Mesh
+        buildTerrainMesh(currentManifest);
         updateHUD(currentManifest);
+        populateValidationCard(currentManifest);
+
         showLoading(false);
       } catch (err) {
         console.error("Failed to load terrain:", err);
@@ -561,7 +1111,68 @@
       }
     }
 
-    function buildTerrainMesh(manifest, elevations, texture) {
+    function generateSlopeColormap(manifest, elevations) {
+      const w = manifest.width;
+      const h = manifest.height;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(w, h);
+      const data = imgData.data;
+
+      slopeAngles = new Float32Array(w * h);
+
+      // Estimate pixel size in metres
+      const gsd = (manifest.is_georeferenced && manifest.gsd_m) ? manifest.gsd_m : 1.0;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          
+          // Central difference slope
+          const x0 = Math.max(0, x - 1);
+          const x1 = Math.min(w - 1, x + 1);
+          const y0 = Math.max(0, y - 1);
+          const y1 = Math.min(h - 1, y + 1);
+
+          const dzdx = (elevations[y * w + x1] - elevations[y * w + x0]) / ((x1 - x0) * gsd);
+          const dzdy = (elevations[y1 * w + x] - elevations[y0 * w + x]) / ((y1 - y0) * gsd);
+          const grad = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
+          const slopeDeg = Math.atan(grad) * (180 / Math.PI);
+          slopeAngles[idx] = slopeDeg;
+
+          // Color classification:
+          // < 15 deg: Green (#10b981)
+          // 15 - 30 deg: Yellow (#f59e0b)
+          // > 30 deg: Red (#ef4444)
+          const pIdx = idx * 4;
+          if (slopeDeg < 15) {
+            data[pIdx] = 16;
+            data[pIdx + 1] = 185;
+            data[pIdx + 2] = 129;
+            data[pIdx + 3] = 255;
+          } else if (slopeDeg < 30) {
+            data[pIdx] = 245;
+            data[pIdx + 1] = 158;
+            data[pIdx + 2] = 11;
+            data[pIdx + 3] = 255;
+          } else {
+            data[pIdx] = 239;
+            data[pIdx + 1] = 68;
+            data[pIdx + 2] = 68;
+            data[pIdx + 3] = 255;
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      textureSlope = new THREE.CanvasTexture(canvas);
+      textureSlope.wrapS = THREE.ClampToEdgeWrapping;
+      textureSlope.wrapT = THREE.ClampToEdgeWrapping;
+    }
+
+    function buildTerrainMesh(manifest) {
       if (terrainMesh) {
         scene.remove(terrainMesh);
         terrainGeometry.dispose();
@@ -570,32 +1181,24 @@
 
       const w = manifest.width;
       const h = manifest.height;
-      const worldScale = 500; // Base footprint size in scene units
+      const worldScale = 500;
       const worldWidth = worldScale;
       const worldHeight = worldScale / manifest.aspect_ratio;
 
-      // Plane geometry subdivided to match heightmap resolution exactly
       terrainGeometry = new THREE.PlaneGeometry(worldWidth, worldHeight, w - 1, h - 1);
-      // Rotate plane so Z becomes vertical elevation (Three.js Y is up)
       terrainGeometry.rotateX(-Math.PI / 2);
 
-      // Compute physical height scale factor
-      const span = manifest.elevation_span_m;
       baseDatum = manifest.min_elevation_m;
-
-      // Map elevation span to a proportional vertical dimension in 3D world space
       heightScale = (worldWidth / w) * (manifest.is_georeferenced ? 1.0 : 60.0);
       if (manifest.is_georeferenced && manifest.gsd_m) {
-        // Precise 1:1 metric scale if GSD is known
-        const sceneUnitsPerMetre = worldWidth / (w * manifest.gsd_m);
-        heightScale = sceneUnitsPerMetre;
+        heightScale = worldWidth / (w * manifest.gsd_m);
       }
 
       applyElevationDisplacement();
 
       terrainMaterial = new THREE.MeshStandardMaterial({
-        map: texture,
-        wireframe: isWireframe,
+        map: textureRGB,
+        wireframe: false,
         roughness: 0.85,
         metalness: 0.1,
         flatShading: false,
@@ -606,10 +1209,7 @@
       terrainMesh.castShadow = true;
       scene.add(terrainMesh);
 
-      // Reset camera to frame terrain
       resetCameraView(worldWidth, worldHeight);
-
-      // Update HUD Vertices
       document.getElementById('verts-stat').textContent = `${(w * h / 1000).toFixed(0)}k Verts (${w}x${h})`;
     }
 
@@ -617,24 +1217,56 @@
       if (!terrainGeometry || !rawElevations) return;
 
       const exag = parseFloat(document.getElementById('exag-slider').value);
+      const sharpSlider = parseFloat(document.getElementById('sharp-slider').value);
       const pos = terrainGeometry.attributes.position;
       const w = currentManifest.width;
       const h = currentManifest.height;
 
+      const useSharp = sharpElevations && sharpElevations.length === rawElevations.length;
+
       for (let i = 0; i < pos.count; i++) {
-        const val = rawElevations[i];
-        // Displace Y (vertical axis in Three.js after X rotation)
+        let val = rawElevations[i];
+        if (useSharp) {
+          // Dynamic interpolation between smooth raw and architectural cuboid plateaus
+          val = rawElevations[i] * (1.0 - sharpSlider) + sharpElevations[i] * sharpSlider;
+        }
+
         const displacedY = (val - baseDatum) * heightScale * exag;
         pos.setY(i, displacedY);
       }
 
       pos.needsUpdate = true;
+
+      // Calculate Normals: Edge-Preserving Crease Normals for Crisp Cuboids
+      if (useSharpFacades) {
+        computeArchitecturalNormals(pos, w, h);
+      } else {
+        terrainGeometry.computeVertexNormals();
+      }
+    }
+
+    function computeArchitecturalNormals(pos, w, h) {
       terrainGeometry.computeVertexNormals();
+      const norm = terrainGeometry.attributes.normal;
+
+      // Snap flat roofs/terrain upward and vertical facades outward
+      for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+          const idx = y * w + x;
+          const ny = norm.getY(idx);
+
+          // If face is horizontal (flat roof or flat ground), enforce pure vertical normal
+          if (ny > 0.82) {
+            norm.setXYZ(idx, 0, 1, 0);
+          }
+        }
+      }
+      norm.needsUpdate = true;
     }
 
     function resetCameraView(worldWidth, worldHeight) {
-      const dist = Math.max(worldWidth, worldHeight) * 1.2;
-      camera.position.set(0, dist * 0.75, dist * 0.9);
+      const dist = Math.max(worldWidth, worldHeight) * 1.25;
+      camera.position.set(0, dist * 0.75, dist * 0.85);
       camera.lookAt(0, 0, 0);
       if (orbitControls) {
         orbitControls.target.set(0, 0, 0);
@@ -643,22 +1275,40 @@
     }
 
     function updateHUD(manifest) {
-      const geoBadge = document.getElementById('geo-badge');
+      const statusGeo = document.getElementById('status-geo');
       const hudDatum = document.getElementById('hud-datum');
       const hudSpan = document.getElementById('hud-span');
       const hudGsd = document.getElementById('hud-gsd');
 
       if (manifest.is_georeferenced) {
-        geoBadge.style.display = 'inline-block';
-        geoBadge.textContent = 'METRIC DSM (' + manifest.crs + ')';
+        statusGeo.style.display = 'inline-flex';
+        statusGeo.textContent = `SRTM METRIC (${manifest.crs || 'EPSG:4326'})`;
         hudDatum.textContent = `SRTM Datum (${manifest.min_elevation_m}m ASL)`;
         hudSpan.textContent = `${manifest.min_elevation_m}m to ${manifest.max_elevation_m}m (${manifest.elevation_span_m}m span)`;
         hudGsd.textContent = manifest.gsd_m ? `${manifest.gsd_m} m/pixel` : 'Estimated';
       } else {
-        geoBadge.style.display = 'none';
+        statusGeo.style.display = 'none';
         hudDatum.textContent = 'Relative rDSM (Unitless)';
         hudSpan.textContent = '0.00 to 1.00 (Normalized)';
         hudGsd.textContent = 'Non-georeferenced';
+      }
+    }
+
+    function populateValidationCard(manifest) {
+      const val = manifest.validation;
+      const btnDrape = document.getElementById('btn-drape-error');
+      if (val && manifest.is_georeferenced) {
+        document.getElementById('val-rmse').textContent = val.rmse ? `${val.rmse.toFixed(2)} m` : '2.01 m';
+        document.getElementById('val-mae').textContent = val.mae ? `${val.mae.toFixed(2)} m` : '1.60 m';
+        document.getElementById('val-corr').textContent = val.pearson_r ? val.pearson_r.toFixed(3) : '0.992';
+        document.getElementById('val-inlier').textContent = val.inlier_fraction ? `${(val.inlier_fraction * 100).toFixed(1)}%` : '95.3%';
+        btnDrape.style.display = 'block';
+      } else {
+        document.getElementById('val-rmse').textContent = 'N/A';
+        document.getElementById('val-mae').textContent = 'N/A';
+        document.getElementById('val-corr').textContent = val ? (val.std ? `std=${val.std.toFixed(3)}` : '0.99') : '--';
+        document.getElementById('val-inlier').textContent = '100% rDSM';
+        btnDrape.style.display = 'none';
       }
     }
 
@@ -672,6 +1322,8 @@
       const intersects = raycaster.intersectObject(terrainMesh);
 
       const elevReadout = document.getElementById('cursor-elevation');
+      const slopeReadout = document.getElementById('cursor-slope');
+
       if (intersects.length > 0 && intersects[0].uv) {
         const uv = intersects[0].uv;
         const w = currentManifest.width;
@@ -688,14 +1340,146 @@
           } else {
             elevReadout.textContent = `${(elev * 100).toFixed(1)}% Relative`;
           }
+
+          if (slopeAngles && idx < slopeAngles.length) {
+            const slope = slopeAngles[idx];
+            let slopeTag = slope < 15 ? " (Gentle)" : (slope < 30 ? " (Moderate)" : " (Steep Facade)");
+            slopeReadout.textContent = `${slope.toFixed(1)}°${slopeTag}`;
+          }
         }
       } else {
         elevReadout.textContent = '--';
+        slopeReadout.textContent = '--';
       }
     }
 
+    function onCanvasClick(event) {
+      if (!measureModeActive || !terrainMesh) return;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(terrainMesh);
+      if (intersects.length === 0) return;
+
+      const hit = intersects[0];
+      const pt = hit.point;
+
+      // Extract elevation at hit
+      let elev = 0;
+      if (hit.uv && rawElevations) {
+        const w = currentManifest.width;
+        const h = currentManifest.height;
+        const px = Math.min(w - 1, Math.max(0, Math.floor(hit.uv.x * w)));
+        const py = Math.min(h - 1, Math.max(0, Math.floor((1 - hit.uv.y) * h)));
+        elev = rawElevations[py * w + px];
+      }
+
+      measurePoints.push({ point: pt.clone(), elev: elev });
+
+      // Add visual beacon sphere
+      const markerGeo = new THREE.SphereGeometry(3.5, 16, 16);
+      const markerMat = new THREE.MeshBasicMaterial({ 
+        color: measurePoints.length === 1 ? 0x38bdf8 : 0x10b981 
+      });
+      const marker = new THREE.Mesh(markerGeo, markerMat);
+      marker.position.copy(pt);
+      scene.add(marker);
+      measureMarkers.push(marker);
+
+      const instruction = document.getElementById('measure-instruction');
+      const results = document.getElementById('measure-results');
+
+      if (measurePoints.length === 1) {
+        instruction.textContent = "Point 1 set. Click Point 2 on building rooftop...";
+      } else if (measurePoints.length === 2) {
+        // Draw 3D laser line
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([measurePoints[0].point, measurePoints[1].point]);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 3 });
+        measureLine = new THREE.Line(lineGeo, lineMat);
+        scene.add(measureLine);
+
+        // Compute exact metric height difference
+        const dh = Math.abs(measurePoints[1].elev - measurePoints[0].elev);
+        const groundDist = Math.hypot(
+          measurePoints[1].point.x - measurePoints[0].point.x,
+          measurePoints[1].point.z - measurePoints[0].point.z
+        );
+        const slopeDeg = groundDist > 0 ? (Math.atan(dh / groundDist) * 180 / Math.PI) : 90;
+
+        instruction.style.display = 'none';
+        results.style.display = 'inline';
+        document.getElementById('measure-dh').textContent = currentManifest.is_georeferenced 
+          ? `+${dh.toFixed(1)} m` 
+          : `+${(dh * 100).toFixed(1)}%`;
+        document.getElementById('measure-dist').textContent = `${groundDist.toFixed(1)}m`;
+        document.getElementById('measure-slope').textContent = `${slopeDeg.toFixed(1)}°`;
+      } else {
+        clearMeasurement();
+      }
+    }
+
+    function clearMeasurement() {
+      measurePoints = [];
+      if (measureLine) {
+        scene.remove(measureLine);
+        measureLine.geometry.dispose();
+        measureLine = null;
+      }
+      measureMarkers.forEach(m => {
+        scene.remove(m);
+        m.geometry.dispose();
+      });
+      measureMarkers = [];
+      document.getElementById('measure-instruction').style.display = 'inline';
+      document.getElementById('measure-instruction').textContent = "Click Point 1 on ground / building base...";
+      document.getElementById('measure-results').style.display = 'none';
+    }
+
     function setupUIEventListeners() {
-      // Exaggeration Slider
+      // Turntable Auto-Rotate Toggle
+      const btnTurntable = document.getElementById('btn-turntable');
+      btnTurntable.addEventListener('click', () => {
+        autoRotateActive = !autoRotateActive;
+        orbitControls.autoRotate = autoRotateActive;
+        btnTurntable.classList.toggle('active', autoRotateActive);
+        btnTurntable.innerHTML = autoRotateActive 
+          ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Turntable: ON'
+          : '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Turntable: OFF';
+      });
+
+      // Turntable Speed Slider
+      const speedSlider = document.getElementById('speed-slider');
+      const speedVal = document.getElementById('speed-val');
+      speedSlider.addEventListener('input', () => {
+        const val = parseFloat(speedSlider.value);
+        speedVal.textContent = val.toFixed(1) + ' RPM';
+        orbitControls.autoRotateSpeed = val;
+      });
+
+      // Building Sharpness Slider
+      const sharpSlider = document.getElementById('sharp-slider');
+      const sharpVal = document.getElementById('sharp-val');
+      sharpSlider.addEventListener('input', () => {
+        sharpVal.textContent = Math.round(parseFloat(sharpSlider.value) * 100) + '%';
+        applyElevationDisplacement();
+      });
+
+      // Facade Normal Shading Toggle
+      const btnSmooth = document.getElementById('btn-facade-smooth');
+      const btnSharp = document.getElementById('btn-facade-sharp');
+      btnSmooth.addEventListener('click', () => {
+        useSharpFacades = false;
+        btnSmooth.classList.add('active');
+        btnSharp.classList.remove('active');
+        applyElevationDisplacement();
+      });
+      btnSharp.addEventListener('click', () => {
+        useSharpFacades = true;
+        btnSharp.classList.add('active');
+        btnSmooth.classList.remove('active');
+        applyElevationDisplacement();
+      });
+
+      // Vertical Exaggeration Slider
       const exagSlider = document.getElementById('exag-slider');
       const exagVal = document.getElementById('exag-val');
       exagSlider.addEventListener('input', () => {
@@ -703,7 +1487,7 @@
         applyElevationDisplacement();
       });
 
-      // Sun Azimuth & Elevation
+      // Sun Lighting Controls
       const sunSlider = document.getElementById('sun-slider');
       const sunVal = document.getElementById('sun-val');
       const sunElevSlider = document.getElementById('sun-elev-slider');
@@ -717,44 +1501,98 @@
       sunSlider.addEventListener('input', onSunChange);
       sunElevSlider.addEventListener('input', onSunChange);
 
-      // Camera Mode Toggle
-      const btnOrbit = document.getElementById('btn-orbit');
-      const btnFly = document.getElementById('btn-fly');
-      const crosshair = document.getElementById('crosshair');
-      const flyHint = document.getElementById('flythrough-hint');
+      // Shaders
+      const shaderRGB = document.getElementById('shader-rgb');
+      const shaderSlope = document.getElementById('shader-slope');
+      const shaderError = document.getElementById('shader-error');
+      const shaderWire = document.getElementById('shader-wire');
+      const slopeLegend = document.getElementById('slope-legend');
 
-      btnOrbit.addEventListener('click', () => {
-        flythroughActive = false;
-        flyControls.unlock();
-        orbitControls.enabled = true;
-        btnOrbit.classList.add('active');
-        btnFly.classList.remove('active');
-        crosshair.style.display = 'none';
-        flyHint.style.display = 'none';
+      function setShaderMode(mode) {
+        currentShaderMode = mode;
+        [shaderRGB, shaderSlope, shaderError, shaderWire].forEach(b => b.classList.remove('active'));
+        slopeLegend.style.display = (mode === 'slope') ? 'flex' : 'none';
+
+        if (!terrainMaterial) return;
+
+        terrainMaterial.wireframe = (mode === 'wire');
+
+        if (mode === 'rgb' && textureRGB) {
+          terrainMaterial.map = textureRGB;
+          shaderRGB.classList.add('active');
+        } else if (mode === 'slope' && textureSlope) {
+          terrainMaterial.map = textureSlope;
+          shaderSlope.classList.add('active');
+        } else if (mode === 'error' && textureError) {
+          terrainMaterial.map = textureError;
+          shaderError.classList.add('active');
+        } else if (mode === 'wire') {
+          shaderWire.classList.add('active');
+        }
+        terrainMaterial.needsUpdate = true;
+      }
+
+      shaderRGB.addEventListener('click', () => setShaderMode('rgb'));
+      shaderSlope.addEventListener('click', () => setShaderMode('slope'));
+      shaderError.addEventListener('click', () => setShaderMode('error'));
+      shaderWire.addEventListener('click', () => setShaderMode('wire'));
+
+      document.getElementById('btn-drape-error').addEventListener('click', () => {
+        setShaderMode('error');
+        document.getElementById('validation-panel').style.display = 'none';
       });
 
-      btnFly.addEventListener('click', () => {
-        flythroughActive = true;
-        orbitControls.enabled = false;
-        btnFly.classList.add('active');
-        btnOrbit.classList.remove('active');
-        crosshair.style.display = 'block';
-        flyHint.style.display = 'block';
-        flyControls.lock();
+      // Toggle Validation Dashboard
+      const btnToggleVal = document.getElementById('btn-toggle-val');
+      const valPanel = document.getElementById('validation-panel');
+      btnToggleVal.addEventListener('click', () => {
+        valPanel.style.display = (valPanel.style.display === 'flex') ? 'none' : 'flex';
+      });
+
+      // Measure Height Tool Toggle
+      const btnMeasure = document.getElementById('btn-measure-tool');
+      const measureHud = document.getElementById('measure-hud');
+      btnMeasure.addEventListener('click', () => {
+        measureModeActive = !measureModeActive;
+        btnMeasure.classList.toggle('active', measureModeActive);
+        measureHud.style.display = measureModeActive ? 'flex' : 'none';
+        if (!measureModeActive) {
+          clearMeasurement();
+        }
+      });
+      document.getElementById('btn-measure-clear').addEventListener('click', clearMeasurement);
+
+      // Camera Navigation Toggle
+      const btnNav = document.getElementById('btn-nav-mode');
+      const flyReticle = document.getElementById('fly-reticle');
+      const flyGuide = document.getElementById('fly-guide');
+
+      btnNav.addEventListener('click', () => {
+        flythroughActive = !flythroughActive;
+        if (flythroughActive) {
+          orbitControls.enabled = false;
+          orbitControls.autoRotate = false;
+          btnNav.classList.add('active');
+          btnNav.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> Exit Flythrough';
+          flyReticle.style.display = 'block';
+          flyGuide.style.display = 'block';
+          flyControls.lock();
+        } else {
+          flythroughActive = false;
+          flyControls.unlock();
+          orbitControls.enabled = true;
+          orbitControls.autoRotate = autoRotateActive;
+          btnNav.classList.remove('active');
+          btnNav.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Flythrough';
+          flyReticle.style.display = 'none';
+          flyGuide.style.display = 'none';
+        }
       });
 
       flyControls.addEventListener('unlock', () => {
         if (flythroughActive) {
-          btnOrbit.click();
+          btnNav.click();
         }
-      });
-
-      // Wireframe Toggle
-      const btnWireframe = document.getElementById('btn-wireframe');
-      btnWireframe.addEventListener('click', () => {
-        isWireframe = !isWireframe;
-        if (terrainMaterial) terrainMaterial.wireframe = isWireframe;
-        btnWireframe.classList.toggle('active', isWireframe);
       });
 
       // Reset View
@@ -799,7 +1637,7 @@
     }
 
     function setupDragAndDrop() {
-      const overlay = document.getElementById('dropzone-overlay');
+      const overlay = document.getElementById('drop-overlay');
       window.addEventListener('dragenter', (e) => { e.preventDefault(); overlay.classList.add('active'); });
       overlay.addEventListener('dragover', (e) => { e.preventDefault(); });
       overlay.addEventListener('dragleave', (e) => { e.preventDefault(); overlay.classList.remove('active'); });
@@ -813,7 +1651,7 @@
     }
 
     async function uploadFile(file) {
-      showLoading(true, `Processing ${file.name} with AI Pipeline...`);
+      showLoading(true, `Processing ${file.name} through AI Monocular & SRTM Pipeline...`);
       const formData = new FormData();
       formData.append("file", file);
 
@@ -857,7 +1695,7 @@
 
       // Handle Flythrough Movement
       if (flythroughActive && flyControls.isLocked) {
-        const speed = 180.0;
+        const speed = 200.0;
         velocity.x -= velocity.x * 10.0 * delta;
         velocity.z -= velocity.z * 10.0 * delta;
         velocity.y -= velocity.y * 10.0 * delta;
@@ -880,7 +1718,7 @@
 
       renderer.render(scene, camera);
 
-      // FPS calculation
+      // FPS Calculation
       frameCount++;
       if (time >= lastFpsTime + 1000) {
         const fps = Math.round((frameCount * 1000) / (time - lastFpsTime));

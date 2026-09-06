@@ -40,6 +40,8 @@ from src.depth_extract import DepthEstimator
 from src.georef import align_to_reference, fetch_srtm, is_georeferenced, read_geotiff, to_metric_resolution
 from src.calibrate import apply_calibration, calibrate_depth
 from src.mesh_export import export_for_web
+from src.validate import compute_metrics, error_map, save_error_map
+from src.utils import depth_stats
 
 app = FastAPI(
     title="DepthWizard API",
@@ -145,6 +147,7 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
             # Attempt SRTM fetch & calibration if key is present
             has_calibrated = False
             pred_dsm = rel_depth
+            val_metrics = None
             if "OPENTOPO_API_KEY" in os.environ:
                 try:
                     srtm_path = fetch_srtm(bounds=bounds, crs=crs, out_dir="data/srtm")
@@ -153,11 +156,21 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                     calib_res = calibrate_depth(rel_depth, ref_dem, comb_mask, method="ransac")
                     pred_dsm = apply_calibration(rel_depth, calib_res.slope, calib_res.intercept)
                     has_calibrated = True
+
+                    # Generate validation metrics & spatial error map
+                    val_metrics = compute_metrics(pred_dsm, ref_dem, comb_mask)
+                    val_metrics["inlier_fraction"] = round(calib_res.inlier_fraction, 3)
+                    val_metrics["slope"] = round(calib_res.slope, 2)
+                    val_metrics["intercept"] = round(calib_res.intercept, 2)
+                    val_metrics["r2"] = round(calib_res.r2, 4)
+
+                    err_arr = error_map(pred_dsm, ref_dem, comb_mask)
+                    save_error_map(err_arr, job_dir / "error_map.png")
                 except Exception as e:
                     print(f"[API WARNING] SRTM alignment/calibration skipped: {e}")
 
             gsd = to_metric_resolution(transform, crs)
-            export_for_web(
+            web_assets = export_for_web(
                 elevation_arr=pred_dsm,
                 rgb_input=rgb_uint8,
                 out_dir=job_dir,
@@ -167,19 +180,45 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 gsd_m=gsd,
             )
 
+            # Append validation metrics to manifest if available
+            if val_metrics:
+                manifest_file = job_dir / "manifest.json"
+                with open(manifest_file, "r", encoding="utf-8") as f:
+                    m = json.load(f)
+                m["validation"] = val_metrics
+                m["error_map_file"] = "error_map.png"
+                with open(manifest_file, "w", encoding="utf-8") as f:
+                    json.dump(m, f, indent=2)
+
         else:
             print(f"[API] Standard RGB image detected. Executing Stage 1 Relative Pipeline...")
             pil_img = Image.open(input_path).convert("RGB")
             depth_res = estimator.predict(pil_img, robust=True)
             rel_depth = depth_res.normalized_depth
+            stats = depth_stats(rel_depth)
 
-            export_for_web(
+            web_assets = export_for_web(
                 elevation_arr=rel_depth,
                 rgb_input=pil_img,
                 out_dir=job_dir,
                 max_dim=512,
                 is_georeferenced=False,
             )
+
+            # Attach relative stats to manifest
+            manifest_file = job_dir / "manifest.json"
+            with open(manifest_file, "r", encoding="utf-8") as f:
+                m = json.load(f)
+            m["validation"] = {
+                "type": "relative_rdsm",
+                "std": stats["std"],
+                "mean": stats["mean"],
+                "min": stats["min"],
+                "max": stats["max"],
+                "flat_warning": stats["flat_warning"],
+            }
+            with open(manifest_file, "w", encoding="utf-8") as f:
+                json.dump(m, f, indent=2)
 
         print(f"[API] Successfully generated web assets for job: {job_id}")
         return {"job_id": job_id, "status": "completed"}
@@ -201,13 +240,18 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
         manifest = json.load(f)
 
     resolved_id = job_dir.name
+    has_error_map = (job_dir / "error_map.png").exists()
+    has_sharp_bin = (job_dir / "heightmap_sharp.bin").exists()
+
     return {
         "job_id": resolved_id,
         "manifest": manifest,
         "assets": {
             "heightmap": f"/api/assets/{resolved_id}/heightmap.png",
             "heightmap_bin": f"/api/assets/{resolved_id}/heightmap.bin",
+            "heightmap_sharp_bin": f"/api/assets/{resolved_id}/heightmap_sharp.bin" if has_sharp_bin else f"/api/assets/{resolved_id}/heightmap.bin",
             "texture": f"/api/assets/{resolved_id}/texture.png",
+            "error_map": f"/api/assets/{resolved_id}/error_map.png" if has_error_map else None,
         },
     }
 

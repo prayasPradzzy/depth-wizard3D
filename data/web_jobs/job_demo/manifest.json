@@ -13,5 +13,7 @@
   "gsd_m": null,
   "heightmap_file": "heightmap.png",
   "heightmap_bin_file": "heightmap.bin",
+  "heightmap_sharp_file": "heightmap_sharp.png",
+  "heightmap_sharp_bin_file": "heightmap_sharp.bin",
   "texture_file": "texture.png"
 }
