@@ -1,0 +1,27 @@
+{
+  "width": 512,
+  "height": 288,
+  "original_width": 1920,
+  "original_height": 1080,
+  "aspect_ratio": 1.7778,
+  "vertex_count": 147456,
+  "min_elevation_m": 0.0,
+  "max_elevation_m": 1.0,
+  "elevation_span_m": 1.0,
+  "is_georeferenced": false,
+  "crs": "Local (Non-georeferenced)",
+  "gsd_m": null,
+  "heightmap_file": "heightmap.png",
+  "heightmap_bin_file": "heightmap.bin",
+  "heightmap_sharp_file": "heightmap_sharp.png",
+  "heightmap_sharp_bin_file": "heightmap_sharp.bin",
+  "texture_file": "texture.png",
+  "validation": {
+    "type": "relative_rdsm",
+    "std": 0.2724199593067169,
+    "mean": 0.43075236678123474,
+    "min": 0.0,
+    "max": 1.0,
+    "flat_warning": false
+  }
+}
