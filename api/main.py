@@ -288,6 +288,14 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
             except Exception:
                 pass
             m["has_geotiff"] = (job_dir / "metric_dsm.tif").exists()
+            m["has_crs"] = True
+            m["metric_calibrated"] = bool(has_calibrated)
+            if not has_calibrated:
+                m["calibration_note"] = (
+                    "CRS and ground sample distance are read from the file, but no SRTM "
+                    "anchor was available, so heights remain relative. Set OPENTOPO_API_KEY "
+                    "to enable absolute metric elevation."
+                )
             with open(manifest_file, "w", encoding="utf-8") as f:
                 json.dump(m, f, indent=2)
 
