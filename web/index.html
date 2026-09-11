@@ -241,6 +241,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
           <button class="tool" data-layer="agl">Height</button>
           <button class="tool" data-layer="error" style="display:none">SRTM Error</button>
           <button class="tool" data-layer="wire">Wireframe</button>
+          <button class="tool on" id="tFacade" title="Insert true vertical building faces instead of diagonal ramps">Sharp Buildings</button>
           <button class="tool" id="tRuler">Ruler</button>
           <button class="tool" id="tSun">Sun <span class="k">12h</span></button>
         </div>
@@ -305,6 +306,8 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 let scene,camera,renderer,orbit,fly,stage;
 let terrainMesh=null,terrainGeometry=null,terrainMaterial=null;
 let skirtMesh=null,skirtGeometry=null;
+let facadeMesh=null,facadeGeometry=null,facadeCount=0;
+let facadesOn=true,cliffStrength=0.85;
 let sun,hemi,ambient,rim;
 let rawElevations=null,sharpElevations=null,groundElevations=null;
 let slopeAngles=null,manifest=null,jobId=null;
@@ -445,6 +448,128 @@ function buildAGLTexture(){
   texAGL=new THREE.CanvasTexture(c);
   texAGL.wrapS=texAGL.wrapT=THREE.ClampToEdgeWrapping;
 }
+
+/**
+ * Collapse blurred building edges into genuine steps.
+ *
+ * WHY: a monocular depth model hedges at a boundary, smearing a street-to-roof
+ * transition across several pixels. The mesh then joins those samples with
+ * diagonal triangles, so a 60 m tower renders as a 30-degree ramp. Measured on a
+ * real scene: only 0.11% of edges exceeded 60 degrees and none reached vertical.
+ *
+ * For each pixel we take the local min and max over a window. Where that range is
+ * large a real discontinuity exists, so the pixel is pushed to whichever extreme
+ * it is nearer - roof stays roof, street stays street, and the ramp between them
+ * disappears. Flat areas have a small local range and are left untouched.
+ */
+function snapCliffs(src, w, h, strength, iters){
+  if(strength<=0) return src;
+  let cur=Float32Array.from(src);
+  let lo=Infinity,hi=-Infinity;
+  for(let i=0;i<cur.length;i++){ if(cur[i]<lo)lo=cur[i]; if(cur[i]>hi)hi=cur[i]; }
+  const thr=(hi-lo)*0.045;               // below this, treat as genuine terrain relief
+  if(!(thr>0)) return cur;
+  const out=new Float32Array(cur.length);
+  for(let it=0; it<iters; it++){
+    for(let y=0;y<h;y++){
+      const y0=y>0?y-1:0, y1=y<h-1?y+1:h-1;
+      for(let x=0;x<w;x++){
+        const x0=x>0?x-1:0, x1=x<w-1?x+1:w-1;
+        let mn=Infinity,mx=-Infinity;
+        for(let yy=y0;yy<=y1;yy++)for(let xx=x0;xx<=x1;xx++){
+          const v=cur[yy*w+xx]; if(v<mn)mn=v; if(v>mx)mx=v;
+        }
+        const i=y*w+x, v=cur[i];
+        if(mx-mn>thr){
+          const target=(v-mn)<(mx-v)?mn:mx;
+          out[i]=v+(target-v)*strength;
+        } else out[i]=v;
+      }
+    }
+    cur.set(out);
+  }
+  return cur;
+}
+
+/**
+ * Insert true vertical faces wherever adjacent cells differ sharply.
+ *
+ * A displaced plane cannot express a vertical wall - neighbouring vertices are one
+ * cell apart horizontally, so the steepest face it can produce is a diagonal. This
+ * adds explicit quads that bridge the height gap vertically, which is what makes a
+ * building read as a building instead of a pyramid.
+ *
+ * Only sharp edges qualify, so ordinary terrain slopes are untouched and the extra
+ * geometry stays small (typically a few thousand quads).
+ */
+function buildFacades(){
+  if(facadeMesh){ scene.remove(facadeMesh); facadeGeometry.dispose(); facadeMesh.material.dispose(); facadeMesh=null; }
+  if(!terrainGeometry||!manifest||!facadesOn) return;
+  const w=manifest.width,h=manifest.height,pos=terrainGeometry.attributes.position;
+  const cellX=worldSize.w/(w-1), cellZ=worldSize.h/(h-1);
+  // Scale the threshold to the scene's actual vertical range, not to cell size.
+  // A cell-size threshold sounds reasonable but is ~1% of the height range, so it
+  // fires on ordinary terrain texture and produced 377k walls on a real scene.
+  // Keying off the height range means only genuine storey-scale steps qualify.
+  let yLo=Infinity,yHi=-Infinity;
+  for(let i=0;i<pos.count;i++){const v=pos.getY(i); if(v<yLo)yLo=v; if(v>yHi)yHi=v;}
+  let thr=Math.max(cellX,cellZ,(yHi-yLo)*0.06);
+  const MAXQ=45000;
+  for(let guard=0; guard<6; guard++){
+    let n=0;
+    for(let y=0;y<h;y++)for(let x=0;x<w-1;x++)
+      if(Math.abs(pos.getY(y*w+x+1)-pos.getY(y*w+x))>thr)n++;
+    for(let x=0;x<w;x++)for(let y=0;y<h-1;y++)
+      if(Math.abs(pos.getY((y+1)*w+x)-pos.getY(y*w+x))>thr)n++;
+    if(n<=MAXQ) break;
+    thr*=1.6;                              // too fragmented: demand steeper steps
+  }
+  const V=[],U=[],C=[],I=[];
+  const top=1.0, bot=0.45;                 // darken the base: cheap contact shading
+  function quad(ax,ay,az,bx,by,bz,cx,cy,cz,dx,dy,dz,u,v){
+    const n=V.length/3;
+    V.push(ax,ay,az, bx,by,bz, cx,cy,cz, dx,dy,dz);
+    U.push(u,v, u,v, u,v, u,v);
+    C.push(top,top,top, top,top,top, bot,bot,bot, bot,bot,bot);
+    I.push(n,n+1,n+2, n,n+2,n+3);
+  }
+  for(let y=0;y<h;y++){
+    const z=pos.getZ(y*w), zA=z-cellZ*0.5, zB=z+cellZ*0.5;
+    for(let x=0;x<w-1;x++){
+      const i0=y*w+x,i1=i0+1, y0=pos.getY(i0), y1=pos.getY(i1);
+      if(Math.abs(y1-y0)<=thr) continue;
+      const xm=(pos.getX(i0)+pos.getX(i1))*0.5;
+      const hi=Math.max(y0,y1), lo=Math.min(y0,y1);
+      const t=y1>y0?i1:i0, u=(t%w)/(w-1), v=1-Math.floor(t/w)/(h-1);
+      quad(xm,hi,zA, xm,hi,zB, xm,lo,zB, xm,lo,zA, u,v);
+    }
+  }
+  for(let x=0;x<w;x++){
+    const xx=pos.getX(x), xA=xx-cellX*0.5, xB=xx+cellX*0.5;
+    for(let y=0;y<h-1;y++){
+      const i0=y*w+x,i1=i0+w, y0=pos.getY(i0), y1=pos.getY(i1);
+      if(Math.abs(y1-y0)<=thr) continue;
+      const zm=(pos.getZ(i0)+pos.getZ(i1))*0.5;
+      const hi=Math.max(y0,y1), lo=Math.min(y0,y1);
+      const t=y1>y0?i1:i0, u=(t%w)/(w-1), v=1-Math.floor(t/w)/(h-1);
+      quad(xA,hi,zm, xB,hi,zm, xB,lo,zm, xA,lo,zm, u,v);
+    }
+  }
+  if(!I.length) return;
+  facadeGeometry=new THREE.BufferGeometry();
+  facadeGeometry.setAttribute('position',new THREE.Float32BufferAttribute(V,3));
+  facadeGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
+  facadeGeometry.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
+  facadeGeometry.setIndex(I);
+  facadeGeometry.computeVertexNormals();
+  facadeMesh=new THREE.Mesh(facadeGeometry,new THREE.MeshStandardMaterial({
+    map:texRGB, vertexColors:true, roughness:.95, metalness:0,
+    side:THREE.DoubleSide, flatShading:true}));
+  facadeMesh.castShadow=facadeMesh.receiveShadow=true;
+  scene.add(facadeMesh);
+  facadeCount=I.length/6;
+}
+
 function buildMesh(){
   if(terrainMesh){scene.remove(terrainMesh);terrainGeometry.dispose();terrainMaterial.dispose();}
   const w=manifest.width,h=manifest.height;
@@ -468,7 +593,8 @@ function buildMesh(){
   terrainMesh.castShadow=terrainMesh.receiveShadow=true;
   scene.add(terrainMesh);
   setLayer(layer);resetCamera();
-  $('sbVerts').textContent=(w*h/1000).toFixed(0)+'k verts ('+w+'x'+h+')';
+  $('sbVerts').textContent=(w*h/1000).toFixed(0)+'k verts'
+    +(facadesOn&&facadeCount?' + '+facadeCount+' facades':'');
   $('sliceSlider').max=String(h-1);
   $('sliceSlider').value=String(Math.floor(h/2));
   drawProfile();
@@ -478,10 +604,11 @@ function applyDisplacement(){
   const exag=1.5,sharp=.85;
   const pos=terrainGeometry.attributes.position;
   const useSharp=sharpElevations&&sharpElevations.length===rawElevations.length;
-  for(let i=0;i<pos.count;i++){
-    const v=useSharp?rawElevations[i]*(1-sharp)+sharpElevations[i]*sharp:rawElevations[i];
-    pos.setY(i,(v-baseDatum)*heightScale*exag);
-  }
+  let src=new Float32Array(rawElevations.length);
+  for(let i=0;i<src.length;i++)
+    src[i]=useSharp?rawElevations[i]*(1-sharp)+sharpElevations[i]*sharp:rawElevations[i];
+  src=snapCliffs(src,manifest.width,manifest.height,cliffStrength,2);
+  for(let i=0;i<pos.count;i++) pos.setY(i,(src[i]-baseDatum)*heightScale*exag);
   pos.needsUpdate=true;
   terrainGeometry.computeVertexNormals();
   const n=terrainGeometry.attributes.normal;
@@ -489,6 +616,7 @@ function applyDisplacement(){
   n.needsUpdate=true;
   terrainGeometry.computeBoundingSphere();
   rebuildSkirt();
+  buildFacades();
 }
 function rebuildSkirt(){
   const w=manifest.width,h=manifest.height,pos=terrainGeometry.attributes.position;
@@ -884,6 +1012,14 @@ function wireUI(){
   $('dropzone').addEventListener('drop',e=>{if(e.dataTransfer.files[0])upload(e.dataTransfer.files[0]);});
   document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>setLayer(b.dataset.layer));
   document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $('tFacade').onclick=()=>{
+    facadesOn=!facadesOn;
+    cliffStrength=facadesOn?0.85:0.0;   // off = raw ramps, for the before/after
+    $('tFacade').classList.toggle('on',facadesOn);
+    applyDisplacement();
+    $('sbVerts').textContent=(manifest.width*manifest.height/1000).toFixed(0)
+      +'k verts'+(facadesOn&&facadeCount?' + '+facadeCount+' facades':'');
+  };
   $('tRuler').onclick=()=>{rulerOn=!rulerOn;$('tRuler').classList.toggle('on',rulerOn);if(!rulerOn)clearRuler();};
   $('tSun').onclick=()=>setSunHour(sunHour>=18?6:sunHour+3);
   $('btnFly').onclick=()=>setView('fps');
