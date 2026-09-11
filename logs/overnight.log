@@ -14,3 +14,13 @@
 [18:37:03] train manifest: 200 tiles (need 200)
 [18:37:03] split: 180 train / 20 val
 [18:37:03] TRAIN: C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\.venv-train\Scripts\python.exe C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\tools\train_gamus.py --manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_train_split.json --val-manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_val_split.json --epochs 150 --crop 448 --batch 4 --out C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\checkpoints\agl_vits.pt
+[19:27:42] training exited 0 after 50.7 min
+[19:27:42] EVAL: C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\.venv-train\Scripts\python.exe C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\tools\eval_gamus.py --manifest C:/Users/pradz/AppData/Local/Temp/claude/C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main/2dbf4613-aea0-44de-a25c-2bbaa54a175f/scratchpad/gamus_test_all.json --checkpoint C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\checkpoints\agl_vits.pt --out C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\data\benchmark_finetuned.json
+[19:29:24] eval exited 0
+[19:29:24] ============================================================
+[19:29:24] BASELINE  (zero-shot)  RMSE 6.218 m  MAE 4.045 m  r 0.682
+[19:29:24] FINETUNED (aligned)    RMSE 4.600 m  MAE 2.508 m  r 0.840
+[19:29:24] FINETUNED (absolute)   RMSE 5.479 m  MAE 2.570 m
+[19:29:24] VERDICT: fine-tuning IMPROVED scale-invariant RMSE
+[19:29:24] To show it in the viewer: copy data/benchmark_finetuned.json over data/benchmark.json
+[19:29:24] OVERNIGHT RUN COMPLETE

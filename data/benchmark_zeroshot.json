@@ -1,0 +1,103 @@
+{
+  "dataset": "GAMUS test split",
+  "protocol": "per-tile affine aligned (scale-invariant)",
+  "ground_truth": "LiDAR-derived nDSM (above-ground level, metres)",
+  "model": "Depth Anything V2 small (zero-shot)",
+  "absolute_metric": null,
+  "tiled_inference": "off",
+  "n_tiles": 240,
+  "n_tiles_skipped": 0,
+  "n_pixels": 251658240,
+  "cities": [
+    "DC",
+    "NYC",
+    "PHL"
+  ],
+  "overall": {
+    "rmse": 6.217597095909981,
+    "mae": 4.044508565396757,
+    "pearson_r": 0.6819676994965611,
+    "delta1": 0.232541651061419,
+    "delta2": 0.4389169622270978,
+    "delta3": 0.6081138777047757
+  },
+  "per_city": [
+    {
+      "city": "DC",
+      "rmse": 7.576997460988007,
+      "mae": 5.683269146101723,
+      "n_tiles": 80,
+      "n_px": 83886080
+    },
+    {
+      "city": "NYC",
+      "rmse": 5.453651094586488,
+      "mae": 3.754974522103155,
+      "n_tiles": 80,
+      "n_px": 83886080
+    },
+    {
+      "city": "PHL",
+      "rmse": 5.368644163650784,
+      "mae": 2.695282027985404,
+      "n_tiles": 80,
+      "n_px": 83886080
+    }
+  ],
+  "per_class": [
+    {
+      "id": 6,
+      "name": "Tree",
+      "rmse": 8.422669322467133,
+      "mae": 6.599610793387169,
+      "mean_gt_height_m": 12.362135430846196,
+      "n_px": 54381683,
+      "n_px_m": "54.4M"
+    },
+    {
+      "id": 3,
+      "name": "Building",
+      "rmse": 7.573799359979394,
+      "mae": 4.4867387950423,
+      "mean_gt_height_m": 10.302544501426478,
+      "n_px": 51459722,
+      "n_px_m": "51.5M"
+    },
+    {
+      "id": 2,
+      "name": "Low vegetation",
+      "rmse": 4.026363970325301,
+      "mae": 2.621429236560387,
+      "mean_gt_height_m": 0.3263319141288312,
+      "n_px": 44936700,
+      "n_px_m": "44.9M"
+    },
+    {
+      "id": 5,
+      "name": "Road",
+      "rmse": 4.776870504778132,
+      "mae": 3.356221923290183,
+      "mean_gt_height_m": 1.4157323188732283,
+      "n_px": 40387129,
+      "n_px_m": "40.4M"
+    },
+    {
+      "id": 1,
+      "name": "Ground",
+      "rmse": 4.4965695988758325,
+      "mae": 2.7668768793247307,
+      "mean_gt_height_m": 0.37900518664099925,
+      "n_px": 37362799,
+      "n_px_m": "37.4M"
+    },
+    {
+      "id": 4,
+      "name": "Water",
+      "rmse": 5.123016502830416,
+      "mae": 2.391705518978475,
+      "mean_gt_height_m": -1.3454471245594173,
+      "n_px": 7539512,
+      "n_px_m": "7.5M"
+    }
+  ]
+}

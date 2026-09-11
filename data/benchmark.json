@@ -2,8 +2,12 @@
   "dataset": "GAMUS test split",
   "protocol": "per-tile affine aligned (scale-invariant)",
   "ground_truth": "LiDAR-derived nDSM (above-ground level, metres)",
-  "model": "Depth Anything V2 small (zero-shot)",
-  "absolute_metric": null,
+  "model": "Depth Anything V2 small fine-tuned on GAMUS (metric AGL)",
+  "absolute_metric": {
+    "rmse": 5.4790790260157936,
+    "mae": 2.569738371049364,
+    "note": "no alignment - direct metric output in metres"
+  },
   "tiled_inference": "off",
   "n_tiles": 240,
   "n_tiles_skipped": 0,
@@ -14,32 +18,32 @@
     "PHL"
   ],
   "overall": {
-    "rmse": 6.217597095909981,
-    "mae": 4.044508565396757,
-    "pearson_r": 0.6819676994965611,
-    "delta1": 0.232541651061419,
-    "delta2": 0.4389169622270978,
-    "delta3": 0.6081138777047757
+    "rmse": 4.599554760618761,
+    "mae": 2.508382347453901,
+    "pearson_r": 0.8403224607460851,
+    "delta1": 0.38891116167771095,
+    "delta2": 0.6362586289741011,
+    "delta3": 0.7710560576980158
   },
   "per_city": [
     {
       "city": "DC",
-      "rmse": 7.576997460988007,
-      "mae": 5.683269146101723,
+      "rmse": 4.72899473078374,
+      "mae": 3.0001001646799432,
       "n_tiles": 80,
       "n_px": 83886080
     },
     {
       "city": "NYC",
-      "rmse": 5.453651094586488,
-      "mae": 3.754974522103155,
+      "rmse": 4.033677823102495,
+      "mae": 2.298457942635051,
       "n_tiles": 80,
       "n_px": 83886080
     },
     {
       "city": "PHL",
-      "rmse": 5.368644163650784,
-      "mae": 2.695282027985404,
+      "rmse": 4.983348677688813,
+      "mae": 2.2265889350467067,
       "n_tiles": 80,
       "n_px": 83886080
     }
@@ -48,8 +52,8 @@
     {
       "id": 6,
       "name": "Tree",
-      "rmse": 8.422669322467133,
-      "mae": 6.599610793387169,
+      "rmse": 5.762445582721463,
+      "mae": 4.378697606048983,
       "mean_gt_height_m": 12.362135430846196,
       "n_px": 54381683,
       "n_px_m": "54.4M"
@@ -57,8 +61,8 @@
     {
       "id": 3,
       "name": "Building",
-      "rmse": 7.573799359979394,
-      "mae": 4.4867387950423,
+      "rmse": 6.5924280065847665,
+      "mae": 3.513697627672124,
       "mean_gt_height_m": 10.302544501426478,
       "n_px": 51459722,
       "n_px_m": "51.5M"
@@ -66,8 +70,8 @@
     {
       "id": 2,
       "name": "Low vegetation",
-      "rmse": 4.026363970325301,
-      "mae": 2.621429236560387,
+      "rmse": 2.890855486511554,
+      "mae": 1.389262512919444,
       "mean_gt_height_m": 0.3263319141288312,
       "n_px": 44936700,
       "n_px_m": "44.9M"
@@ -75,8 +79,8 @@
     {
       "id": 5,
       "name": "Road",
-      "rmse": 4.776870504778132,
-      "mae": 3.356221923290183,
+      "rmse": 3.1049391469916414,
+      "mae": 1.642754571453027,
       "mean_gt_height_m": 1.4157323188732283,
       "n_px": 40387129,
       "n_px_m": "40.4M"
@@ -84,8 +88,8 @@
     {
       "id": 1,
       "name": "Ground",
-      "rmse": 4.4965695988758325,
-      "mae": 2.7668768793247307,
+      "rmse": 2.9679056612800045,
+      "mae": 1.2463515770289468,
       "mean_gt_height_m": 0.37900518664099925,
       "n_px": 37362799,
       "n_px_m": "37.4M"
@@ -93,11 +97,37 @@
     {
       "id": 4,
       "name": "Water",
-      "rmse": 5.123016502830416,
-      "mae": 2.391705518978475,
+      "rmse": 3.0687709422738667,
+      "mae": 1.5207359210206206,
       "mean_gt_height_m": -1.3454471245594173,
       "n_px": 7539512,
       "n_px_m": "7.5M"
     }
-  ]
+  ],
+  "baseline": {
+    "model": "Depth Anything V2 small (zero-shot)",
+    "rmse": 6.217597095909981,
+    "mae": 4.044508565396757,
+    "pearson_r": 0.6819676994965611,
+    "per_class": {
+      "Tree": 8.422669322467133,
+      "Building": 7.573799359979394,
+      "Low vegetation": 4.026363970325301,
+      "Road": 4.776870504778132,
+      "Ground": 4.4965695988758325,
+      "Water": 5.123016502830416
+    },
+    "per_city": {
+      "DC": 7.576997460988007,
+      "NYC": 5.453651094586488,
+      "PHL": 5.368644163650784
+    }
+  },
+  "training": {
+    "tiles": 180,
+    "val_tiles": 20,
+    "epochs": 150,
+    "gpu": "RTX 3060 Laptop 6GB",
+    "minutes": 51
+  }
 }

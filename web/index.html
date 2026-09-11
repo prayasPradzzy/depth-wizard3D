@@ -281,6 +281,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
           <div class="metric"><div class="k">RMSE</div><div class="v amber" id="bmRmse">-</div></div>
           <div class="metric"><div class="k">MAE</div><div class="v amber" id="bmMae">-</div></div></div>
         <div class="metric"><div class="k">Pearson r</div><div class="v amber" id="bmCorr">-</div></div>
+        <div class="metric" id="bmAbsBox" style="display:none"><div class="k">Absolute, no calibration</div><div class="v amber" id="bmAbs">-</div></div>
+        <div id="bmVsBox" style="display:none;flex-direction:column;gap:6px">
+          <div class="lbl" style="color:var(--ok)">Versus zero-shot baseline</div>
+          <div class="rows" id="bmVs"></div>
+        </div>
         <div class="lbl">By city</div><div class="rows" id="bmCities"></div>
         <div class="lbl">RMSE by land cover</div><div class="rows" id="bmClasses"></div>
         <div class="note" id="bmProtocol"></div>
@@ -742,11 +747,35 @@ async function loadBenchmark(){
     $('bmMae').textContent=b.overall.mae.toFixed(2)+' m';
     $('bmCorr').textContent=b.overall.pearson_r.toFixed(3);
     $('bmSub').textContent=b.n_tiles+' tiles · '+b.cities.join('/')+' · '+b.ground_truth;
-    $('bmProtocol').textContent='Protocol: '+b.protocol+'. Ground truth is withheld from calibration.';
+    $('bmProtocol').textContent='Model: '+b.model+'. Protocol: '+b.protocol
+      +'. Ground truth is withheld from training and calibration.';
+
+    // Absolute metric output needs no scale alignment at all - worth calling out
+    // separately, because it is the capability the problem statement asks for.
+    if(b.absolute_metric){
+      $('bmAbs').textContent=b.absolute_metric.rmse.toFixed(2)+' m';
+      $('bmAbsBox').style.display='';
+    }
+    if(b.baseline){
+      const pc=(a,z)=>((1-a/z)*100).toFixed(0)+'% better';
+      const rows=[
+        ['RMSE', b.baseline.rmse.toFixed(2)+' → '+b.overall.rmse.toFixed(2)+' m', pc(b.overall.rmse,b.baseline.rmse)],
+        ['MAE', b.baseline.mae.toFixed(2)+' → '+b.overall.mae.toFixed(2)+' m', pc(b.overall.mae,b.baseline.mae)],
+        ['Pearson r', b.baseline.pearson_r.toFixed(3)+' → '+b.overall.pearson_r.toFixed(3), ''],
+      ];
+      $('bmVs').innerHTML=rows.map(r=>
+        '<div class="r"><span>'+r[0]+'</span><b>'+r[1]
+        +(r[2]?' <span style="color:var(--ok)">'+r[2]+'</span>':'')+'</b></div>').join('');
+      $('bmVsBox').style.display='flex';
+    }
     $('bmCities').innerHTML=(b.per_city||[]).map(c=>
       '<div class="r"><span>'+c.city+' ('+c.n_tiles+' tiles)</span><b>'+c.rmse.toFixed(2)+' m</b></div>').join('');
-    $('bmClasses').innerHTML=(b.per_class||[]).map(c=>
-      '<div class="r"><span>'+c.name+'</span><b>'+c.rmse.toFixed(2)+' m</b></div>').join('');
+    const bc=(b.baseline&&b.baseline.per_class)||{};
+    $('bmClasses').innerHTML=(b.per_class||[]).map(c=>{
+      const was=bc[c.name];
+      return '<div class="r"><span>'+c.name+'</span><b>'
+        +(was!==undefined?'<span style="color:var(--dim)">'+was.toFixed(2)+' → </span>':'')
+        +c.rmse.toFixed(2)+' m</b></div>';}).join('');
     $('bmBox').style.display='flex';
   }catch(e){}
 }

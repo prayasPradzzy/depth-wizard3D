@@ -6,60 +6,73 @@
 
 ## 0. Independent LiDAR Benchmark (GAMUS) — PRIMARY RESULT
 
-This is the headline accuracy figure and the only one measured against **independent
-ground truth**. Every number below comes from `tools/eval_gamus.py` run on the
-held-out GAMUS **test** split, whose nDSM heights are derived from airborne LiDAR and
-are used nowhere in our calibration path.
+All figures are measured by `tools/eval_gamus.py` on the held-out GAMUS **test**
+split. Its heights come from airborne LiDAR and are used nowhere in training or
+calibration, so this is a genuinely independent measurement.
 
 | | |
 |---|---|
-| Dataset | GAMUS test split |
+| Tiles | **240** (DC, NYC, PHL), 252M pixels |
 | Ground truth | LiDAR-derived nDSM (above-ground level, metres) |
-| Tiles evaluated | **141** (DC, PHL), 148M pixels |
-| Model | Depth Anything V2 small (zero-shot) |
 | Protocol | per-tile affine aligned (scale-invariant) |
 
-### Overall
+### Closing the domain gap
 
-| Metric | Value |
-|---|---|
-| **RMSE** | **6.93 m** |
-| **MAE** | **4.51 m** |
-| **Pearson r** | **0.688** |
-| δ < 1.25 | 24.1% |
-| δ < 1.25² | 44.9% |
-| δ < 1.25³ | 62.0% |
+The stock backbone is trained on egocentric photography, not nadir aerial imagery.
+We measured that gap, then closed it by fine-tuning on GAMUS.
 
-### Stability across land-cover types
+| Metric | Zero-shot backbone | Fine-tuned on GAMUS | Improvement |
+|---|---|---|---|
+| **RMSE** | 6.22 m | **4.60 m** | **26%** |
+| **MAE** | 4.04 m | **2.51 m** | **38%** |
+| **Pearson r** | 0.682 | **0.840** | — |
 
-The problem statement asks for *"performance stability across urban, sparse, hilly and
-forested landscapes."* GAMUS ships per-pixel semantic labels, so error can be
-attributed directly to land-cover type:
+### Absolute metric output
 
-| Land cover | RMSE | MAE | Mean true height | Pixels |
-|---|---|---|---|---|
-| **Building** | 8.52 m | 5.01 m | 11.06 m | 36.4M |
-| **Ground** | 4.85 m | 3.03 m | 0.38 m | 31.1M |
-| **Tree** | 8.64 m | 6.62 m | 13.37 m | 30.2M |
-| **Road** | 5.17 m | 3.70 m | 1.81 m | 30.1M |
-| **Low vegetation** | 5.22 m | 3.68 m | 0.46 m | 16.9M |
-| **Water** | 8.30 m | 5.15 m | -3.72 m | 2.6M |
+The fine-tuned model regresses height in metres directly. With **no scale alignment
+of any kind** it achieves **RMSE 5.48 m / MAE 2.57 m** — still better than the
+zero-shot baseline that was *given* per-tile affine alignment (6.22 m). This is the
+capability the problem statement asks for: metric elevation without a calibration
+crutch.
 
-**Reading these results.** Error tracks object height: the tall, geometrically complex
-classes (buildings, trees) carry roughly 1.8x the error of flat ground and road. That is
-the expected signature of a backbone trained on egocentric photography being applied
-to nadir imagery — it recovers coarse layout but under-resolves vertical structure.
+### Stability across land cover
 
-**On the protocol.** These figures use per-tile affine alignment, the standard
-scale-invariant protocol from the monocular-depth literature. They measure how correct
-the predicted *surface shape* is, given correct scale. They do **not** show that the
-system recovers absolute height unaided; that is the job of the SRTM/GCP calibration
-stage. Quoting these as absolute accuracy would be wrong.
+| Land cover | Zero-shot | Fine-tuned | Improvement |
+|---|---|---|---|
+| **Tree** | 8.42 m | 5.76 m | 32% |
+| **Building** | 7.57 m | 6.59 m | 13% |
+| **Low vegetation** | 4.03 m | 2.89 m | 28% |
+| **Road** | 4.78 m | 3.10 m | 35% |
+| **Ground** | 4.50 m | 2.97 m | 34% |
+| **Water** | 5.12 m | 3.07 m | 40% |
 
-**Why this matters.** Earlier revisions of this project reported accuracy only against
-the same SRTM tile used to fit the calibration — a circular measurement. This section
-replaces that with a genuinely independent one, and the resulting numbers are honest
-about the domain gap rather than flattering.
+### Stability across cities
+
+Three distinct built regimes: NYC high-rise, DC low-rise (height-limited), PHL rowhouse.
+
+| City | Zero-shot | Fine-tuned | Tiles |
+|---|---|---|---|
+| **DC** | 7.58 m | 4.73 m | 80 |
+| **NYC** | 5.45 m | 4.03 m | 80 |
+| **PHL** | 5.37 m | 4.98 m | 80 |
+
+Every land-cover class and every city improved.
+
+### Training
+
+ViT-S backbone with a DPT head retargeted from relative disparity to metres AGL.
+180 train / 20 val tiles, 150 epochs, 51 minutes on a RTX 3060 Laptop 6GB.
+Loss: masked L1 + multi-scale gradient matching.
+
+### How to read these numbers
+
+The aligned figures use per-tile affine alignment, the standard scale-invariant
+protocol from the monocular-depth literature; they measure surface *shape*. The
+absolute figure has no alignment and measures true metric recovery. Both are
+reported because conflating them would overstate the result.
+
+Earlier revisions of this project reported accuracy only against the same SRTM tile
+used to fit the calibration — a circular measurement. This section replaces it.
 
 ---
 
