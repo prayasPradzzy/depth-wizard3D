@@ -1,0 +1,24 @@
+# Keep the build context small. Without this, Docker uploads ~600 MB of virtual
+# environments, generated job output and git history before the build even starts.
+
+.venv/
+.venv-train/
+.git/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Generated at runtime - the app recreates these on first upload.
+data/web_jobs/
+data/output/
+data/srtm/
+logs/
+
+# Trained weights are large; the container runs the zero-shot backbone.
+# Mount them in if you want to use them (see docker-compose.yml).
+checkpoints/
+
+# Scratch
+*.tmp
+.env

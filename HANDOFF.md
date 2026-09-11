@@ -49,17 +49,47 @@ nobody can verify.
 
 ## How to run it
 
+### Option A — Docker (nothing to install but Docker)
+
 ```
+docker compose up --build
+```
+
+Then open **http://localhost:8000**.
+
+First build takes roughly 10-15 minutes and pulls about 2 GB: it installs PyTorch and
+the geospatial stack, and bakes the depth model into the image so the container needs
+no network at run time and the first upload is fast. Subsequent starts are seconds
+(`docker compose up`).
+
+Wait for `Model pre-warmed` in the log before demoing.
+
+> **Not yet build-tested.** The Dockerfile was written against the verified dependency
+> set but Docker is not installed on the machine it was authored on, so nobody has run
+> `docker build` on it yet. If it fails, the error will almost certainly be a missing
+> apt or pip package - add it to the Dockerfile and rebuild. Option B below *is*
+> verified working.
+
+Optional, for absolute metric elevation: get a free key at
+[portal.opentopography.org](https://portal.opentopography.org) and put it in a `.env`
+file beside `docker-compose.yml`:
+
+```
+OPENTOPO_API_KEY=your_key_here
+```
+
+### Option B — native Windows (verified working)
+
+```
+setup_laptop.bat     (first time only, ~10 min)
 start_demo.bat
 ```
 
 **Wait for `Model pre-warmed` in the console before demoing** (~15 s). After that an
 upload takes ~6 s instead of the old 44 s.
 
-Then open http://localhost:8000 and **hard-refresh with Ctrl+Shift+R** (browser caches
-the old page aggressively).
-
-First-time setup on a new machine: `setup_laptop.bat`, then as above.
+Either way: open http://localhost:8000 and **hard-refresh with Ctrl+Shift+R** the first
+time - the browser caches the old page aggressively.
 
 ---
 
@@ -134,6 +164,10 @@ All removed. Everything now shows a measured value or a dash.
 | `tools/fetch_scene.py` | Pulls georeferenced scenes from Maxar Open Data |
 | `logs/overnight.log` | Training run log |
 | `checkpoints/agl_vits.pt` | The trained model (95 MB) |
+| `Dockerfile`, `docker-compose.yml` | Containerised run |
+
+Running the benchmark or training scripts needs `h5py` as well (`pip install h5py`);
+it is deliberately left out of the container, which only serves the app.
 
 Training details: 180 train / 20 val tiles, 150 epochs, **51 minutes on a 6 GB RTX
 3060 laptop GPU**. Only used 180 of ~5,000 available tiles — using more is the single
