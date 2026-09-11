@@ -181,6 +181,32 @@ def validate(model, loader, device):
     return math.sqrt(se / max(1, n)), ae / max(1, n)
 
 
+
+def save_checkpoint(obj, path, retries=5):
+    """
+    Write a checkpoint atomically, retrying on transient locks.
+
+    WHY: on Windows a real-time AV scanner frequently still holds the freshly
+    written ~100 MB .pt file when the next epoch tries to overwrite it, and
+    torch.save dies with "File ... cannot be opened". Writing to a temp file and
+    renaming makes the swap atomic, and the retry rides out the scan window. An
+    overnight run must not lose hours of training to that.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    for attempt in range(retries):
+        try:
+            torch.save(obj, tmp)
+            os.replace(tmp, path)
+            return True
+        except Exception as e:
+            print(f"  [save retry {attempt+1}/{retries}] {type(e).__name__}: {e}", flush=True)
+            time.sleep(2.0 * (attempt + 1))
+    print("  [WARN] checkpoint save failed; continuing training", file=sys.stderr, flush=True)
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fine-tune Depth Anything V2 for metric AGL")
     ap.add_argument("--manifest", required=True)
@@ -275,10 +301,10 @@ def main():
 
         if score < best:
             best = score
-            torch.save({"state_dict": model.state_dict(), "checkpoint": ckpt,
-                        "model_size": args.model, "crop": args.crop,
-                        "target": "AGL_metres", "epoch": ep, "score": score}, args.out)
-            print(f"  saved -> {args.out} (best={best:.4f})", flush=True)
+            if save_checkpoint({"state_dict": model.state_dict(), "checkpoint": ckpt,
+                                "model_size": args.model, "crop": args.crop,
+                                "target": "AGL_metres", "epoch": ep, "score": score}, args.out):
+                print(f"  saved -> {args.out} (best={best:.4f})", flush=True)
 
     print(f"\n[DONE] best={best:.4f} | checkpoint: {args.out}")
 

@@ -1,2044 +1,899 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DepthWizard 3D - ISRO Geospatial Mission Control (PS 26175)</title>
-  
-  <!-- Google Fonts: Orbitron (Geospatial/Military), Inter (Clean UI), JetBrains Mono (Telemetry) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
-
-  <style>
-    :root {
-      --bg-dark: #070b12;
-      --bg-panel: rgba(11, 18, 32, 0.88);
-      --bg-panel-hover: rgba(16, 26, 46, 0.95);
-      --border-panel: rgba(56, 189, 248, 0.2);
-      --border-panel-glow: rgba(56, 189, 248, 0.45);
-      --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.4);
-      --accent-emerald: #10b981;
-      --accent-emerald-glow: rgba(16, 185, 129, 0.35);
-      --accent-amber: #f59e0b;
-      --accent-rose: #f43f5e;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --font-display: 'Orbitron', -apple-system, sans-serif;
-      --font-body: 'Inter', -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-    }
-
-    body, html {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: var(--font-body);
-      background: var(--bg-dark);
-      color: var(--text);
-    }
-
-    #viewport-container {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-
-    /* Glassmorphic Panel System */
-    .glass-panel {
-      background: var(--bg-panel);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border-panel);
-      border-radius: 12px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1);
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-      z-index: 10;
-    }
-
-    .glass-panel:hover {
-      border-color: var(--border-panel-glow);
-    }
-
-    /* Top Command Header */
-    #top-header {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      right: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 18px;
-      gap: 16px;
-      z-index: 20;
-    }
-
-    .brand-group {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .isro-badge {
-      font-family: var(--font-display);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 1.2px;
-      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.2));
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      padding: 4px 10px;
-      border-radius: 6px;
-      box-shadow: 0 0 12px var(--accent-glow);
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .isro-badge::before {
-      content: '';
-      width: 6px;
-      height: 6px;
-      background: var(--accent-emerald);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--accent-emerald);
-      animation: pulse-dot 2s infinite ease-in-out;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.4); opacity: 0.6; }
-    }
-
-    .app-title {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .app-title h1 {
-      font-family: var(--font-display);
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .app-title span {
-      font-size: 11px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    /* Header Quick Actions */
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .badge-pill {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .badge-geo {
-      background: rgba(16, 185, 129, 0.15);
-      border-color: var(--accent-emerald);
-      color: var(--accent-emerald);
-    }
-
-    /* Buttons */
-    .btn {
-      padding: 7px 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: var(--font-body);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-
-    .btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
-      transform: translateY(-1px);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn.active {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: var(--accent);
-      color: var(--accent);
-      box-shadow: 0 0 14px var(--accent-glow);
-    }
-
-    .btn-emerald.active {
-      background: rgba(16, 185, 129, 0.2);
-      border-color: var(--accent-emerald);
-      color: var(--accent-emerald);
-      box-shadow: 0 0 14px var(--accent-emerald-glow);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #0284c7, #0369a1);
-      border-color: #38bdf8;
-      color: #fff;
-      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
-    }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #0369a1, #075985);
-      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.6);
-    }
-
-    /* Left Dock / Command Sidebar */
-    #left-dock {
-      position: absolute;
-      top: 74px;
-      left: 14px;
-      width: 320px;
-      /* Stop above the telemetry HUD (bottom-left) so the two panels never overlap. */
-      max-height: calc(100vh - 74px - var(--telemetry-reserve, 260px));
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      font-size: 13px;
-    }
-
-    #left-dock::-webkit-scrollbar {
-      width: 4px;
-    }
-    #left-dock::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 2px;
-    }
-
-    .section-title {
-      font-family: var(--font-display);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .control-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 10px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .control-label {
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .control-val {
-      color: var(--accent);
-      font-weight: 600;
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 5px;
-      background: rgba(255, 255, 255, 0.12);
-      border-radius: 3px;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      box-shadow: 0 0 10px var(--accent-glow);
-      transition: transform 0.15s ease;
-    }
-
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
-    }
-
-    .btn-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 6px;
-    }
-
-    /* Sun Preset Pills */
-    .preset-pill-row {
-      display: flex;
-      gap: 4px;
-    }
-    .preset-pill {
-      flex: 1;
-      padding: 5px 2px;
-      font-size: 10px;
-      font-weight: 600;
-      text-align: center;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .preset-pill:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-    }
-    .preset-pill.active {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    /* Telemetry HUD (Bottom-Left) */
-    #telemetry-hud {
-      position: absolute;
-      bottom: 14px;
-      left: 14px;
-      width: 320px;
-      padding: 14px 16px;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      z-index: 15;
-    }
-
-    .hud-title {
-      font-family: var(--font-display);
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .hud-stat-row {
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-muted);
-    }
-
-    .hud-stat-highlight {
-      font-family: var(--font-mono);
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--accent-emerald);
-      text-shadow: 0 0 10px var(--accent-emerald-glow);
-    }
-
-    .hud-stat-val {
-      font-family: var(--font-mono);
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    /* Measure Tool Floating Banner */
-    #measure-hud {
-      position: absolute;
-      bottom: 14px;
-      left: 348px;
-      padding: 12px 18px;
-      display: none;
-      align-items: center;
-      gap: 16px;
-      z-index: 20;
-      border-color: var(--accent);
-      box-shadow: 0 0 20px var(--accent-glow);
-      animation: slide-up 0.25s ease-out;
-    }
-
-    @keyframes slide-up {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .measure-badge {
-      font-family: var(--font-display);
-      font-size: 10px;
-      font-weight: 800;
-      color: var(--accent);
-      background: rgba(56, 189, 248, 0.15);
-      padding: 3px 8px;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-
-    /* Validation Modal / Panel (Top-Right) */
-    #validation-panel {
-      position: absolute;
-      top: 74px;
-      right: 14px;
-      width: 320px;
-      padding: 16px;
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 25;
-      border-color: var(--accent-emerald);
-      animation: fade-in 0.2s ease;
-    }
-
-    @keyframes fade-in {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    .val-metric-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .metric-card {
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .metric-name {
-      font-size: 10px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      font-family: var(--font-display);
-      letter-spacing: 0.5px;
-    }
-
-    .metric-val {
-      font-family: var(--font-mono);
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--accent-emerald);
-    }
-
-    /* Performance Badge (Bottom-Right) */
-    #perf-badge {
-      position: absolute;
-      bottom: 14px;
-      right: 14px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-muted);
-      padding: 6px 12px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .perf-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent-emerald);
-      border-radius: 50%;
-      box-shadow: 0 0 6px var(--accent-emerald);
-    }
-
-    /* Crosshairs & Fly Hints */
-    #fly-reticle {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 16px;
-      height: 16px;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      display: none;
-      z-index: 30;
-    }
-    #fly-reticle::before, #fly-reticle::after {
-      content: '';
-      position: absolute;
-      background: rgba(56, 189, 248, 0.8);
-      box-shadow: 0 0 6px var(--accent-glow);
-    }
-    #fly-reticle::before { top: 7px; left: 0; width: 16px; height: 2px; }
-    #fly-reticle::after { top: 0; left: 7px; width: 2px; height: 16px; }
-
-    #fly-guide {
-      position: absolute;
-      bottom: 74px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(11, 18, 32, 0.9);
-      border: 1px solid var(--border-panel-glow);
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-size: 12px;
-      color: #fff;
-      display: none;
-      z-index: 30;
-      pointer-events: none;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-    }
-
-    /* Drag & Drop Scrim */
-    #drop-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(7, 11, 18, 0.88);
-      backdrop-filter: blur(10px);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 100;
-      border: 3px dashed var(--accent);
-    }
-    #drop-overlay.active {
-      display: flex;
-    }
-
-    /* Loading Scrim */
-    #loading-scrim {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(7, 11, 18, 0.92);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      z-index: 90;
-      transition: opacity 0.3s ease;
-    }
-
-    .radar-spinner {
-      width: 50px;
-      height: 50px;
-      border: 3px solid rgba(56, 189, 248, 0.15);
-      border-top-color: var(--accent);
-      border-right-color: var(--accent-emerald);
-      border-radius: 50%;
-      animation: radar-spin 0.8s linear infinite;
-      box-shadow: 0 0 20px var(--accent-glow);
-    }
-
-    @keyframes radar-spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* Slope Legend Bar */
-    #slope-legend {
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 4px;
-      font-size: 11px;
-    }
-    .legend-bar {
-      height: 8px;
-      border-radius: 4px;
-      background: linear-gradient(to right, #10b981 0%, #10b981 33%, #f59e0b 33%, #f59e0b 66%, #ef4444 66%, #ef4444 100%);
-      box-shadow: 0 0 8px rgba(0,0,0,0.5);
-    }
-    .legend-labels {
-      display: flex;
-      justify-content: space-between;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-      font-size: 10px;
-    }
-  </style>
-
-  <!-- Three.js ES Modules from CDN -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
-      }
-    }
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DepthWizard - Single-View Height Estimation &amp; 3D Flythrough (ISRO PS 26175)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070c16; --panel:#0d1526; --panel2:#111c31;
+  --line:rgba(120,160,220,.14); --line2:rgba(120,170,230,.30);
+  --accent:#38bdf8; --accentDim:rgba(56,189,248,.14);
+  --ok:#34d399; --warn:#fbbf24; --danger:#f87171;
+  --text:#eef4ff; --muted:#93a4bf; --dim:#61728c;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px}
+button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+#app{display:grid;grid-template-rows:56px 1fr;height:100%}
+header#topbar{display:flex;align-items:center;gap:24px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px;min-width:250px}
+.brand h1{font-size:16px;font-weight:800;letter-spacing:-.2px;line-height:1.15}
+.brand h1 span{color:var(--accent)}
+.brand p{font-size:10.5px;color:var(--muted);line-height:1.3}
+.brand p b{color:var(--text);font-weight:600}
+.caps{display:flex;align-items:center;gap:4px;flex:1;justify-content:center}
+.cap{display:flex;flex-direction:column;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;min-width:112px;font-size:9.5px;color:var(--text);text-align:center;line-height:1.25}
+.cap .dot{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:var(--accent);box-shadow:0 0 14px rgba(56,189,248,.45)}
+.sih{text-align:right;min-width:210px;font-family:var(--mono)}
+.sih .a{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.sih .b{font-size:10px;color:var(--muted)}
+.sih .c{font-size:9.5px;color:var(--dim);font-style:italic;font-family:var(--sans)}
+main{display:grid;grid-template-columns:262px 1fr 322px;gap:10px;padding:10px;min-height:0}
+.col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow-y:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.card>h3{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:11.5px;font-weight:700;border-bottom:1px solid var(--line)}
+.card>h3 .n{width:18px;height:18px;border-radius:50%;background:var(--accent);color:#04121f;display:grid;place-items:center;font-size:10px;font-weight:800;flex:none}
+.card .body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.hint{font-size:10.5px;color:var(--muted);line-height:1.45}
+#dropzone{border:1.5px dashed var(--line2);border-radius:9px;padding:18px 12px;text-align:center;transition:.18s;cursor:pointer}
+#dropzone:hover,#dropzone.hot{border-color:var(--accent);background:var(--accentDim)}
+#dropzone .t{font-size:11.5px;color:var(--muted);margin-top:8px}
+#dropzone .l{color:var(--accent);text-decoration:underline;font-weight:600}
+.filechip{display:none;align-items:center;gap:9px;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.filechip .ic{width:26px;height:26px;border-radius:6px;background:var(--accentDim);display:grid;place-items:center;flex:none}
+.filechip .nm{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filechip .sub{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.lbl{font-size:9.5px;font-weight:700;letter-spacing:.7px;color:var(--dim);text-transform:uppercase}
+.presets{display:flex;gap:5px;flex-wrap:wrap}
+.preset{flex:1;min-width:64px;padding:7px 4px;font-size:10px;font-weight:600;text-align:center;border:1px solid var(--line);border-radius:7px;color:var(--muted);background:var(--panel2);transition:.15s;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preset:hover{color:var(--text);border-color:var(--line2)}
+.preset.on{background:var(--accentDim);border-color:var(--accent);color:var(--accent)}
+.steps{display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:9px;padding:6px 2px;font-size:11.5px;color:var(--dim)}
+.step .mk{width:17px;height:17px;border-radius:50%;flex:none;display:grid;place-items:center;border:1.5px solid var(--line2);font-size:9px}
+.step.run{color:var(--text)}
+.step.run .mk{border-color:var(--accent);border-right-color:transparent;animation:spin .7s linear infinite}
+.step.ok{color:var(--muted)}
+.step.ok .mk{background:var(--ok);border-color:var(--ok);color:#04121f}
+.step.err .mk{background:var(--danger);border-color:var(--danger);color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;border-radius:8px;font-size:11.5px;font-weight:600;background:var(--panel2);border:1px solid var(--line);transition:.15s;width:100%}
+.btn:hover{border-color:var(--line2);background:#16243c}
+.btn.primary{background:var(--accent);color:#04121f;border-color:var(--accent);font-weight:700}
+.btn.primary:hover{background:#5ccdfa}
+#centre{display:grid;grid-template-rows:auto 1fr;gap:10px;min-height:0}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.thumb{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.thumb .h{padding:7px 9px;font-size:10.5px;font-weight:600;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:6px}
+.thumb .h em{font-style:normal;font-size:9px;color:var(--dim);font-family:var(--mono);white-space:nowrap}
+.thumb .im{position:relative;height:100px;background:#060a12}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .sc{position:absolute;left:7px;bottom:6px;font-family:var(--mono);font-size:8.5px;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:3px}
+#viewerCard{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#viewerHead{display:flex;align-items:center;gap:10px;padding:8px 11px;border-bottom:1px solid var(--line);font-size:11.5px;font-weight:700}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tab{padding:5px 11px;font-size:10.5px;font-weight:600;border-radius:6px;color:var(--muted);transition:.15s}
+.tab:hover{color:var(--text);background:var(--panel2)}
+.tab.on{background:var(--accent);color:#04121f}
+#stage{position:relative;flex:1;min-height:0;background:#060a12}
+#stage canvas{display:block}
+.hud{position:absolute;top:11px;left:11px;z-index:5;background:rgba(8,14,26,.82);backdrop-filter:blur(9px);border:1px solid var(--line2);border-radius:9px;padding:10px 12px;font-family:var(--mono);font-size:10.5px;min-width:224px;pointer-events:none}
+.hud .sec{font-size:9px;letter-spacing:.8px;color:var(--dim);font-family:var(--sans);font-weight:700}
+.hud .sec:not(:first-child){margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
+.hud .r{display:flex;justify-content:space-between;gap:14px;padding:2.5px 0}
+.hud .r span{color:var(--muted)}
+.hud .r b{font-weight:600;color:var(--accent)}
+.hud .r b.g{color:var(--ok)}
+#compass{position:absolute;top:11px;right:11px;z-index:5;width:60px;height:60px;background:rgba(8,14,26,.82);backdrop-filter:blur(9px);border:1px solid var(--line2);border-radius:50%;pointer-events:none}
+#toolbar{position:absolute;left:11px;bottom:11px;z-index:5;display:flex;gap:4px;flex-wrap:wrap;background:rgba(8,14,26,.82);backdrop-filter:blur(9px);border:1px solid var(--line2);border-radius:9px;padding:5px}
+.tool{padding:5px 10px;font-size:10.5px;font-weight:600;border-radius:6px;color:var(--muted);transition:.15s}
+.tool:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.tool.on{background:var(--accent);color:#04121f}
+.tool .k{font-family:var(--mono);opacity:.65;font-size:9px}
+#keys{position:absolute;right:11px;bottom:11px;z-index:5;background:rgba(8,14,26,.82);backdrop-filter:blur(9px);border:1px solid var(--line2);border-radius:9px;padding:8px 10px;font-size:9.5px;color:var(--muted);pointer-events:none;display:none}
+#keys div{display:flex;align-items:center;gap:7px;padding:1.5px 0}
+#keys b{font-family:var(--mono);background:rgba(255,255,255,.11);padding:1px 5px;border-radius:3px;color:var(--text);font-weight:600;min-width:38px;text-align:center}
+#statusbar{display:flex;align-items:center;gap:14px;padding:7px 11px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--muted)}
+#statusbar .live{display:flex;align-items:center;gap:6px;color:var(--ok);font-weight:600}
+#statusbar .live i{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 7px var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+#statusbar .sp{margin-left:auto}
+#reticle{position:absolute;top:50%;left:50%;width:16px;height:16px;transform:translate(-50%,-50%);z-index:6;display:none;pointer-events:none}
+#reticle::before,#reticle::after{content:'';position:absolute;background:rgba(56,189,248,.9)}
+#reticle::before{top:7px;left:0;width:16px;height:2px}
+#reticle::after{top:0;left:7px;width:2px;height:16px}
+#scrim{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:13px;background:rgba(6,10,18,.93)}
+#scrim.on{display:flex}
+.spinner{width:38px;height:38px;border:3px solid rgba(56,189,248,.18);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+#scrimTx{font-size:12px;font-weight:600}
+#scrimSub{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+#profile{width:100%;height:150px;display:block}
+.legend{display:flex;gap:13px;font-size:10px;color:var(--muted)}
+.legend i{display:inline-block;width:13px;height:2px;vertical-align:middle;margin-right:5px}
+.slice{display:flex;align-items:center;gap:9px;font-size:10px;color:var(--muted)}
+.slice input{flex:1}
+input[type=range]{-webkit-appearance:none;height:4px;background:rgba(255,255,255,.14);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(56,189,248,.6)}
+.stats{display:flex;justify-content:space-between;font-family:var(--mono)}
+.stats div{text-align:center}
+.stats .k{color:var(--dim);font-size:8.5px;letter-spacing:.4px}
+.stats .v{color:var(--accent);font-weight:700;font-size:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+.metric .k{font-size:8.5px;letter-spacing:.5px;color:var(--dim);text-transform:uppercase}
+.metric .v{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ok)}
+.metric .v.amber{color:var(--warn)}
+.file{display:flex;align-items:center;gap:9px;padding:8px 9px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}
+.file .ic{width:24px;height:24px;border-radius:5px;background:var(--accentDim);display:grid;place-items:center;flex:none}
+.file .nm{font-family:var(--mono);font-size:10.5px;font-weight:600}
+.file .d{font-size:9.5px;color:var(--muted)}
+.file .dl{margin-left:auto;padding:5px 7px;border-radius:5px;color:var(--muted);flex:none}
+.file .dl:hover{background:var(--accentDim);color:var(--accent)}
+.file.off{opacity:.38}
+.file.off .dl{pointer-events:none}
+.rows{font-size:10.5px}
+.rows .r{display:flex;justify-content:space-between;gap:10px;padding:3.5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.rows .r span{color:var(--muted)}
+.rows .r b{font-family:var(--mono);font-weight:600;text-align:right}
+.note{font-size:9.5px;color:var(--dim);line-height:1.45}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/" } }
+</script>
 </head>
 <body>
-  <div id="viewport-container"></div>
+<div id="app">
+<header id="topbar">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+      <path d="M2 19 L8.5 7 L13 14 L16 9.5 L22 19 Z" fill="#38bdf8" opacity=".9"/>
+      <path d="M2 19 L8.5 7 L13 14 L9 19 Z" fill="#0ea5e9"/></svg>
+    <div><h1>Depth<span>Wizard</span></h1>
+      <p><b>From One Image to a 3D World</b><br>Single-View Height Estimation &amp; 3D Flythrough</p></div>
+  </div>
+  <div class="caps">
+    <div class="cap"><div class="dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#04121f" stroke-width="2.4"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg></div>Single Image Input</div>
+    <div class="cap"><div class="dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#04121f" stroke-width="2.4"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/></svg></div>AI Height Estimation</div>
+    <div class="cap"><div class="dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#04121f" stroke-width="2.4"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg></div>Metric Elevation (SRTM)</div>
+    <div class="cap"><div class="dot"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#04121f" stroke-width="2.4"><path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>Interactive 3D Flythrough</div>
+  </div>
+  <div class="sih">
+    <div class="a">SIH 2026</div>
+    <div class="b">Problem Statement 26175 &middot; ISRO</div>
+    <div class="c">Transforming 2D satellite imagery into 3D insight</div>
+  </div>
+</header>
+<main>
+  <div class="col">
+    <div class="card"><h3><span class="n">1</span> Upload Image</h3><div class="body">
+      <div class="hint">Single-view optical RGB. PNG/JPG gives a relative rDSM; GeoTIFF with a CRS gives a metric DSM.</div>
+      <div id="dropzone">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <div class="t">Drag &amp; drop an image here<br>or <span class="l">Browse Files</span></div></div>
+      <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.tif,.tiff,.webp,.bmp" hidden>
+      <div class="filechip" id="fileChip">
+        <div class="ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <div style="min-width:0;flex:1"><div class="nm" id="fileName">-</div><div class="sub" id="fileMeta">-</div></div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="lbl">Processed Scenes</div>
+      <div class="presets" id="presets"></div>
+    </div></div>
+    <div class="card"><h3><span class="n">2</span> Processing</h3><div class="body">
+      <div class="steps" id="steps">
+        <div class="step" data-k="pre"><span class="mk"></span>Image preprocessing</div>
+        <div class="step" data-k="depth"><span class="mk"></span>Monocular depth estimation</div>
+        <div class="step" data-k="scale"><span class="mk"></span>Scale calibration (SRTM / metadata)</div>
+        <div class="step" data-k="mesh"><span class="mk"></span>Generating 3D terrain mesh</div>
+      </div></div></div>
+    <div class="card"><h3><span class="n">3</span> Results</h3><div class="body">
+      <button class="btn primary" id="btnFly"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Enter 3D Flythrough</button>
+      <button class="btn" id="btnReset"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8m0 0V3m0 5h5"/></svg>Reset Camera</button>
+    </div></div>
+  </div>
 
-  <!-- Top Command Header -->
-  <header id="top-header" class="glass-panel">
-    <div class="brand-group">
-      <div class="isro-badge">ISRO · PS 26175</div>
-      <div class="app-title">
-        <h1>DepthWizard 3D 🪄</h1>
-        <span>Single-View Height Estimation & Real-Time Aerial Flythrough</span>
-      </div>
+  <div id="centre">
+    <div class="strip">
+      <div class="thumb"><div class="h">Input Satellite Image<em id="thInMeta">-</em></div>
+        <div class="im"><img id="thIn" alt=""><div class="sc" id="thScale">-</div></div></div>
+      <div class="thumb"><div class="h">Estimated Relative Depth<em>rDSM</em></div>
+        <div class="im"><img id="thDepth" alt=""></div></div>
+      <div class="thumb"><div class="h">Surface Elevation<em id="thElevMeta">-</em></div>
+        <div class="im"><img id="thElev" alt=""></div></div>
     </div>
-
-    <div class="header-actions">
-      <!-- Live Status Pills -->
-      <div id="status-geo" class="badge-pill badge-geo" style="display: none;">
-        <span>SRTM METRIC</span>
+    <div class="card" id="viewerCard">
+      <div id="viewerHead">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        3D Flythrough Viewer
+        <div class="tabs">
+          <button class="tab" data-view="aerial">Aerial</button>
+          <button class="tab on" data-view="orbit">Orbit</button>
+          <button class="tab" data-view="fps">First Person (WASD)</button></div>
       </div>
-
-      <!-- Quick Action Controls -->
-      <button id="btn-turntable" class="btn active" title="Toggle 360° Cinematic Turntable Auto-Rotation">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        Turntable: ON
-      </button>
-
-      <button id="btn-nav-mode" class="btn" title="Switch between Orbit Camera and WASD Drone Flight">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-        Flythrough
-      </button>
-
-      <button id="btn-measure-tool" class="btn" title="Measure Building Height (Δh) between two clicked points">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18M7 16l4-4 4 4 6-6"/></svg>
-        Measure Height
-      </button>
-
-      <button id="btn-toggle-val" class="btn" title="Toggle Reference Accuracy & Ground Validation Dashboard">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-        Validation
-      </button>
-
-      <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.tif,.tiff" style="display: none;">
-      <button class="btn btn-primary" onclick="document.getElementById('file-input').click();">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        Upload Satellite Image
-      </button>
-    </div>
-  </header>
-
-  <!-- Left Dock: Mission Control Parameters -->
-  <aside id="left-dock" class="glass-panel">
-    
-    <!-- 1. Architectural Cuboids & Building Sharpness -->
-    <div class="control-card" style="border-color: rgba(56, 189, 248, 0.3);">
-      <div class="section-title">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/></svg>
-        Architectural Cuboid Regularization
-      </div>
-      
-      <div class="control-group">
-        <div class="control-label">
-          <span>Building Sharpness (Cuboids)</span>
-          <span id="sharp-val" class="control-val">85%</span>
+      <div id="stage">
+        <div class="hud">
+          <div class="sec">CAMERA POSITION</div>
+          <div class="r"><span>Latitude</span><b id="hLat">-</b></div>
+          <div class="r"><span>Longitude</span><b id="hLon">-</b></div>
+          <div class="r"><span>Altitude</span><b id="hAlt">-</b></div>
+          <div class="sec">TERRAIN AT CURSOR</div>
+          <div class="r"><span>Height (AGL)</span><b class="g" id="hAgl">-</b></div>
+          <div class="r"><span>Ground elev.</span><b id="hGround">-</b></div>
+          <div class="r"><span>Surface elev.</span><b id="hSurf">-</b></div>
+          <div class="r"><span>Slope</span><b id="hSlope">-</b></div>
         </div>
-        <input type="range" id="sharp-slider" min="0.0" max="1.0" step="0.05" value="0.85">
-        <span style="font-size: 10px; color: var(--text-dim);">Flattens rooftops & steepens vertical walls</span>
-      </div>
-
-      <div class="control-group">
-        <div class="control-label">
-          <span>Facade Normal Shading</span>
+        <svg id="compass" viewBox="0 0 62 62">
+          <circle cx="31" cy="31" r="23" fill="none" stroke="rgba(120,170,230,.22)"/>
+          <g id="compassRose"><path d="M31 10 L36 31 L31 27 L26 31 Z" fill="#f87171"/>
+          <path d="M31 52 L26 31 L31 35 L36 31 Z" fill="rgba(200,220,245,.5)"/></g>
+          <text x="31" y="8" text-anchor="middle" font-size="8" fill="#93a4bf" font-family="monospace">N</text></svg>
+        <div id="toolbar">
+          <button class="tool on" data-layer="rgb">RGB</button>
+          <button class="tool" data-layer="slope">Slope</button>
+          <button class="tool" data-layer="agl">Height</button>
+          <button class="tool" data-layer="error" style="display:none">SRTM Error</button>
+          <button class="tool" data-layer="wire">Wireframe</button>
+          <button class="tool" id="tRuler">Ruler</button>
+          <button class="tool" id="tSun">Sun <span class="k">12h</span></button>
         </div>
-        <div class="btn-row">
-          <button id="btn-facade-smooth" class="btn" style="flex: 1;">Smooth Terrain</button>
-          <button id="btn-facade-sharp" class="btn active" style="flex: 1;">Sharp Cuboids</button>
-        </div>
+        <div id="keys">
+          <div><b>W A S D</b>Move</div><div><b>Mouse</b>Look around</div>
+          <div><b>Spc / C</b>Up / Down</div><div><b>Esc</b>Exit flythrough</div></div>
+        <div id="reticle"></div>
+        <div id="scrim" class="on"><div class="spinner"></div>
+          <div id="scrimTx">Loading terrain...</div><div id="scrimSub"></div></div>
       </div>
-    </div>
-
-    <!-- 2. Terrain Topography & Exaggeration -->
-    <div class="control-card">
-      <div class="section-title">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        Terrain Topography
+      <div id="statusbar">
+        <span class="live"><i></i>REAL-TIME 3D VIEWPORT</span>
+        <span id="sbFps">- FPS</span><span id="sbVerts">-</span>
+        <span id="sbDatum">DATUM: -</span><span class="sp" id="sbMode">ORBIT</span>
       </div>
-
-      <div class="control-group">
-        <div class="control-label">
-          <span>Vertical Exaggeration</span>
-          <span id="exag-val" class="control-val">1.5x</span>
-        </div>
-        <input type="range" id="exag-slider" min="0.5" max="5.0" step="0.1" value="1.5">
-      </div>
-
-      <div class="control-group">
-        <div class="control-label">
-          <span>Turntable Spin Speed</span>
-          <span id="speed-val" class="control-val">1.2 RPM</span>
-        </div>
-        <input type="range" id="speed-slider" min="0.2" max="4.0" step="0.2" value="1.2">
-      </div>
-    </div>
-
-    <!-- 3. Dynamic Solar Lighting & Shadows -->
-    <div class="control-card">
-      <div class="section-title">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-        Solar Lighting & Shadows
-      </div>
-
-      <div class="control-group">
-        <span class="control-label">Sun Time-of-Day Presets</span>
-        <div class="preset-pill-row">
-          <div class="preset-pill" onclick="setSunPreset(75, 25, this)">Morning</div>
-          <div class="preset-pill active" onclick="setSunPreset(180, 65, this)">Noon</div>
-          <div class="preset-pill" onclick="setSunPreset(260, 20, this)">Sunset</div>
-          <div class="preset-pill" onclick="setSunPreset(135, 35, this)">Canyon</div>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <div class="control-label">
-          <span>Sun Azimuth</span>
-          <span id="sun-val" class="control-val">180°</span>
-        </div>
-        <input type="range" id="sun-slider" min="0" max="360" step="1" value="180">
-      </div>
-
-      <div class="control-group">
-        <div class="control-label">
-          <span>Sun Elevation Angle</span>
-          <span id="sun-elev-val" class="control-val">65°</span>
-        </div>
-        <input type="range" id="sun-elev-slider" min="10" max="85" step="1" value="65">
-      </div>
-    </div>
-
-    <!-- 4. Geospatial Shader Layer -->
-    <div class="control-card">
-      <div class="section-title">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20M2 12h20"/></svg>
-        Geospatial Shading Mode
-      </div>
-
-      <div class="btn-grid">
-        <button id="shader-rgb" class="btn active">🛰️ Optical RGB</button>
-        <button id="shader-slope" class="btn">⚠️ Slope Risk</button>
-        <button id="shader-error" class="btn" style="display: none;">🎯 Error Map</button>
-        <button id="shader-wire" class="btn">🌐 Wireframe</button>
-      </div>
-
-      <!-- Slope Hazard Legend -->
-      <div id="slope-legend">
-        <div class="legend-bar"></div>
-        <div class="legend-labels">
-          <span>&lt;15° Stable</span>
-          <span>15°-30° Caution</span>
-          <span>&gt;30° Hazard</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button id="btn-reset-view" class="btn" style="flex: 1;">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8m0 0V3m0 5h5"/></svg>
-        Reset Camera View
-      </button>
-    </div>
-  </aside>
-
-  <!-- Telemetry HUD (Bottom-Left) -->
-  <div id="telemetry-hud" class="glass-panel">
-    <div class="hud-title">
-      <span>Cursor Elevation Telemetry</span>
-      <span id="hud-status-chip" style="color: var(--accent); font-family: var(--font-mono); font-size: 10px;">RAYCAST ACTIVE</span>
-    </div>
-    <div class="hud-stat-row">
-      <span>Surface Height:</span>
-      <span id="cursor-elevation" class="hud-stat-highlight">--</span>
-    </div>
-    <div class="hud-stat-row">
-      <span>Local Slope Gradient:</span>
-      <span id="cursor-slope" class="hud-stat-val">--</span>
-    </div>
-    <div class="hud-stat-row">
-      <span>Elevation Span:</span>
-      <span id="hud-span" class="hud-stat-val">--</span>
-    </div>
-    <div class="hud-stat-row">
-      <span>Datum Reference:</span>
-      <span id="hud-datum" class="hud-stat-val">Relative (0-1)</span>
-    </div>
-    <div class="hud-stat-row">
-      <span>Ground Sample (GSD):</span>
-      <span id="hud-gsd" class="hud-stat-val">--</span>
     </div>
   </div>
 
-  <!-- Measure Height Floating HUD -->
-  <div id="measure-hud" class="glass-panel">
-    <div class="measure-badge">3D Laser Height Tool</div>
-    <div style="font-size: 12px; color: var(--text-muted);">
-      <span id="measure-instruction">Click Point 1 on ground / building base...</span>
-      <span id="measure-results" style="display: none; color: #fff; font-family: var(--font-mono); font-size: 13px;">
-        Δh: <strong id="measure-dh" style="color: var(--accent-emerald);">+0.0m</strong> | 
-        Dist: <span id="measure-dist">0.0m</span> | 
-        Slope: <span id="measure-slope">0°</span>
-      </span>
-    </div>
-    <button id="btn-measure-clear" class="btn" style="padding: 4px 8px; font-size: 11px;">Clear</button>
+  <div class="col">
+    <div class="card"><h3><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M3 3v18h18M7 15l4-6 3 4 4-7"/></svg>Cross-Sectional Profile</h3><div class="body">
+      <div class="legend"><span><i style="background:#38bdf8"></i>Surface (DSM)</span><span><i style="background:#93a4bf"></i>Ground (estimated)</span></div>
+      <canvas id="profile"></canvas>
+      <div class="slice"><span>SLICE</span><input type="range" id="sliceSlider" min="0" max="100" value="50"><span id="sliceLbl" style="font-family:var(--mono)">-</span></div>
+      <div class="stats">
+        <div><div class="k">PEAK</div><div class="v" id="pPeak">-</div></div>
+        <div><div class="k">MIN</div><div class="v" id="pMin">-</div></div>
+        <div><div class="k">SPAN</div><div class="v" id="pSpan">-</div></div>
+        <div><div class="k">MAX SLOPE</div><div class="v" id="pSlope">-</div></div></div>
+      <div class="note" id="profileNote"></div>
+    </div></div>
+    <div class="card"><h3><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Accuracy &amp; Validation</h3><div class="body">
+      <div class="lbl">This scene</div>
+      <div class="rows" id="sceneRows"></div>
+      <div id="bmBox" style="display:none;flex-direction:column;gap:8px">
+        <div class="lbl" style="color:var(--warn)">Independent LiDAR benchmark</div>
+        <div class="note" id="bmSub" style="font-family:var(--mono)"></div>
+        <div class="grid2">
+          <div class="metric"><div class="k">RMSE</div><div class="v amber" id="bmRmse">-</div></div>
+          <div class="metric"><div class="k">MAE</div><div class="v amber" id="bmMae">-</div></div></div>
+        <div class="metric"><div class="k">Pearson r</div><div class="v amber" id="bmCorr">-</div></div>
+        <div class="lbl">By city</div><div class="rows" id="bmCities"></div>
+        <div class="lbl">RMSE by land cover</div><div class="rows" id="bmClasses"></div>
+        <div class="note" id="bmProtocol"></div>
+      </div>
+    </div></div>
+    <div class="card"><h3><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Output Files</h3>
+      <div class="body" id="outputs"></div></div>
   </div>
+</main>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
-  <!-- Validation & Reference Metrics Card (Top-Right) -->
-  <div id="validation-panel" class="glass-panel">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div class="section-title" style="margin: 0; color: var(--accent-emerald);">
-        Reference Accuracy & Validation
-      </div>
-      <button onclick="document.getElementById('validation-panel').style.display='none'" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">✕</button>
-    </div>
+let scene,camera,renderer,orbit,fly,stage;
+let terrainMesh=null,terrainGeometry=null,terrainMaterial=null;
+let skirtMesh=null,skirtGeometry=null;
+let sun,hemi,ambient,rim;
+let rawElevations=null,sharpElevations=null,groundElevations=null;
+let slopeAngles=null,manifest=null,jobId=null;
+let texRGB=null,texSlope=null,texAGL=null,texError=null,texAO=null;
+let worldSize={w:500,h:500},baseDatum=0,heightScale=1;
+let layer='rgb',viewMode='orbit',rulerOn=false,rulerPts=[],rulerObjs=[];
+let hoverDirty=false,sunHour=12;
+const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2(-999,-999);
+const move={f:0,b:0,l:0,r:0,u:0,d:0};
+const vel=new THREE.Vector3(),dir=new THREE.Vector3();
+let prevT=performance.now(),frames=0,fpsT=performance.now();
+const $=id=>document.getElementById(id);
 
-    <div class="val-metric-grid">
-      <div class="metric-card">
-        <span class="metric-name">Terrain RMSE</span>
-        <span id="val-rmse" class="metric-val">--</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-name">Mean Abs Error</span>
-        <span id="val-mae" class="metric-val">--</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-name">Pearson Corr (r)</span>
-        <span id="val-corr" class="metric-val">--</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-name">RANSAC Inliers</span>
-        <span id="val-inlier" class="metric-val">--</span>
-      </div>
-    </div>
-
-    <div id="benchmark-box" style="display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,.1); padding-top:10px;">
-      <div class="section-title" style="margin:0; color: var(--accent-amber);">Independent LiDAR Benchmark</div>
-      <div id="bm-sub" style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);"></div>
-      <div class="val-metric-grid">
-        <div class="metric-card"><span class="metric-name">RMSE</span><span id="bm-rmse" class="metric-val" style="color:var(--accent-amber)">—</span></div>
-        <div class="metric-card"><span class="metric-name">MAE</span><span id="bm-mae" class="metric-val" style="color:var(--accent-amber)">—</span></div>
-      </div>
-      <div class="metric-card"><span class="metric-name">Pearson r</span><span id="bm-corr" class="metric-val" style="color:var(--accent-amber)">—</span></div>
-      <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;">RMSE by land cover</div>
-      <div id="bm-classes" style="font-size:11px;"></div>
-    </div>
-
-    <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
-      <strong>Method:</strong> Stratified RANSAC anchored to spaceborne SRTM 30m GL1 reference datum.
-    </div>
-
-    <button id="btn-drape-error" class="btn btn-emerald" style="width: 100%;">
-      Drape SRTM Error Map on 3D Terrain
-    </button>
-  </div>
-
-  <!-- Performance Stats Badge (Bottom-Right) -->
-  <div id="perf-badge" class="glass-panel">
-    <div class="perf-dot"></div>
-    <span id="fps-stat">60 FPS</span>
-    <span>|</span>
-    <span id="verts-stat">262k Verts</span>
-  </div>
-
-  <!-- Flythrough Drone Reticle & Guide -->
-  <div id="fly-reticle"></div>
-  <div id="fly-guide">Click scene to lock mouse. WASD = Drone Flight, SPACE = Ascend, C = Descend, ESC = Exit.</div>
-
-  <!-- Drag & Drop Zone -->
-  <div id="drop-overlay">
-    <svg width="48" height="48" fill="none" stroke="#38bdf8" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-    <h2 style="font-family: var(--font-display); letter-spacing: 0.5px;">Drop Aerial / Satellite Image Here</h2>
-    <p style="color: var(--text-muted); font-size: 13px;">Supports GeoTIFF (.tif) for Metric DSM and Optical RGB (.png, .jpg) for rDSM</p>
-  </div>
-
-  <!-- Loading Scrim -->
-  <div id="loading-scrim">
-    <div class="radar-spinner"></div>
-    <h3 id="loading-text" style="font-family: var(--font-display); font-size: 15px; letter-spacing: 0.5px;">Synthesizing 3D Terrain World...</h3>
-  </div>
-
-  <!-- Main Three.js Application Logic -->
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-
-    // Global App State
-    let scene, camera, renderer, orbitControls, flyControls;
-    let terrainMesh = null;
-    let terrainGeometry = null;
-    let terrainMaterial = null;
-    let directionalLight, ambientLight, hemiLight, rimLight;
-    let skyDome = null;
-    let skirtMesh = null;
-    let skirtGeometry = null;
-    let terrainWorldSize = { w: 500, h: 500 };
-    
-    // Height data arrays
-    let rawElevations = null;
-    let sharpElevations = null;
-    let slopeAngles = null;
-    let currentManifest = null;
-    
-    // Textures
-    let textureRGB = null;
-    let textureSlope = null;
-    let textureError = null;
-    let textureAO = null;
-    let currentShaderMode = 'rgb'; // 'rgb', 'slope', 'error', 'wire'
-
-    // Parameters
-    let baseDatum = 0;
-    let heightScale = 1.0;
-    let buildingSharpness = 0.85;
-    let useSharpFacades = true;
-    let autoRotateActive = true;
-    let flythroughActive = false;
-    let measureModeActive = false;
-    let measurePoints = [];
-    let measureLine = null;
-    let measureMarkers = [];
-
-    // Movement for Flythrough Mode
-    const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false };
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    let prevTime = performance.now();
-
-    // Raycasting
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2(-999, -999);
-    let hoverDirty = false;
-    let displacementDirty = false;
-
-    // FPS
-    let frameCount = 0;
-    let lastFpsTime = performance.now();
-
-    function init() {
-      const container = document.getElementById('viewport-container');
-
-      // 1. Scene + atmospheric sky dome
-      scene = new THREE.Scene();
-      scene.fog = new THREE.FogExp2(0x0d1524, 0.00065);
-      buildSkyDome();
-
-      // 2. Camera
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 8000);
-      camera.position.set(0, 320, 480);
-
-      // 3. WebGL2 Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
-      container.appendChild(renderer.domElement);
-
-      // 4. Lighting: hemisphere bounce + key sun + cool rim fill
-      // Hemisphere light supplies sky/ground colour bounce, which is what stops
-      // shadowed facades from collapsing to flat black the way pure ambient does.
-      hemiLight = new THREE.HemisphereLight(0x9ec9ff, 0x2b2418, 0.85);
-      scene.add(hemiLight);
-
-      ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
-      scene.add(ambientLight);
-
-      directionalLight = new THREE.DirectionalLight(0xfff2d8, 2.6);
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 4096;
-      directionalLight.shadow.mapSize.height = 4096;
-      directionalLight.shadow.camera.near = 10;
-      directionalLight.shadow.camera.far = 2600;
-      const d = 420;
-      directionalLight.shadow.camera.left = -d;
-      directionalLight.shadow.camera.right = d;
-      directionalLight.shadow.camera.top = d;
-      directionalLight.shadow.camera.bottom = -d;
-      directionalLight.shadow.bias = -0.0004;
-      directionalLight.shadow.normalBias = 0.6;
-      directionalLight.shadow.radius = 1.6;
-      scene.add(directionalLight);
-
-      // Cool back-rim light separates terrain silhouette from the sky.
-      rimLight = new THREE.DirectionalLight(0x6fa8ff, 0.55);
-      rimLight.position.set(-400, 220, -400);
-      scene.add(rimLight);
-
-      updateSunPosition(180, 65);
-
-      // 5. Controls
-      orbitControls = new OrbitControls(camera, renderer.domElement);
-      orbitControls.enableDamping = true;
-      orbitControls.dampingFactor = 0.05;
-      orbitControls.maxPolarAngle = Math.PI / 2 - 0.02;
-      orbitControls.minDistance = 20;
-      orbitControls.maxDistance = 3000;
-      orbitControls.autoRotate = true;
-      orbitControls.autoRotateSpeed = 1.2;
-
-      flyControls = new PointerLockControls(camera, document.body);
-      scene.add(flyControls.getObject());
-
-      // 6. Listeners
-      window.addEventListener('resize', onWindowResize);
-      window.addEventListener('mousemove', onMouseMove);
-      renderer.domElement.addEventListener('click', onCanvasClick);
-      setupUIEventListeners();
-      setupFlythroughKeys();
-      setupDragAndDrop();
-
-      // 7. Load Default Terrain
-      syncPanelLayout();
-      loadTerrainJob('latest');
-
-      // 8. Animation Loop
-      animate();
+function init(){
+  stage=$('stage');
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x0d1524,0.00065);
+  buildSky();
+  camera=new THREE.PerspectiveCamera(50,1,0.5,8000);
+  camera.position.set(0,320,480);
+  renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  stage.appendChild(renderer.domElement);
+  hemi=new THREE.HemisphereLight(0x9ec9ff,0x2b2418,.85);scene.add(hemi);
+  ambient=new THREE.AmbientLight(0xffffff,.18);scene.add(ambient);
+  sun=new THREE.DirectionalLight(0xfff2d8,2.6);
+  sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);
+  sun.shadow.camera.near=10;sun.shadow.camera.far=2600;
+  sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.6;sun.shadow.radius=1.6;scene.add(sun);
+  rim=new THREE.DirectionalLight(0x6fa8ff,.55);rim.position.set(-400,220,-400);scene.add(rim);
+  setSunHour(12);
+  orbit=new OrbitControls(camera,renderer.domElement);
+  orbit.enableDamping=true;orbit.dampingFactor=.05;
+  orbit.maxPolarAngle=Math.PI/2-.02;orbit.minDistance=20;orbit.maxDistance=3000;
+  fly=new PointerLockControls(camera,renderer.domElement);
+  scene.add(fly.getObject());
+  fly.addEventListener('unlock',()=>{if(viewMode==='fps')setView('orbit');});
+  addEventListener('resize',resize);
+  stage.addEventListener('mousemove',onMove);
+  renderer.domElement.addEventListener('click',onClick);
+  wireUI();resize();loadJob('latest');animate();
+}
+function buildSky(){
+  const m=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
+    uniforms:{top:{value:new THREE.Color(0x050a16)},mid:{value:new THREE.Color(0x14263f)},hor:{value:new THREE.Color(0x2e4a63)}},
+    vertexShader:'varying vec3 vW; void main(){ vW=(modelMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'uniform vec3 top,mid,hor; varying vec3 vW; void main(){ float h=normalize(vW).y; vec3 c=mix(hor,mid,smoothstep(-.05,.35,h)); c=mix(c,top,smoothstep(.3,.9,h)); c+=vec3(.05,.06,.07)*(1.-smoothstep(0.,.16,abs(h))); gl_FragColor=vec4(c,1.);}'});
+  const d=new THREE.Mesh(new THREE.SphereGeometry(4000,32,16),m);
+  d.frustumCulled=false;scene.add(d);
+}
+function setSunHour(h){
+  sunHour=h;
+  const t=Math.min(1,Math.max(0,(h-6)/12));
+  const az=90+t*180, el=12+Math.sin(t*Math.PI)*62;
+  const a=THREE.MathUtils.degToRad(az),e=THREE.MathUtils.degToRad(el),D=850;
+  sun.position.set(D*Math.cos(e)*Math.sin(a),D*Math.sin(e),D*Math.cos(e)*Math.cos(a));
+  sun.color.setHex(el<25?0xffc98a:0xfff2d8);
+  sun.intensity=1.4+(el/75)*1.4;
+  const k=$('tSun').querySelector('.k'); if(k)k.textContent=String(h).padStart(2,'0')+'h';
+}
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  if(!w||!h)return;
+  camera.aspect=w/h;camera.updateProjectionMatrix();
+  renderer.setSize(w,h,false);drawProfile();
+}
+async function loadJob(id){
+  scrim(true,'Loading terrain...','fetching assets');
+  try{
+    const res=await fetch('/api/result/'+id);
+    if(!res.ok)throw new Error('No processed scene available yet.');
+    const d=await res.json();manifest=d.manifest;jobId=d.job_id;
+    rawElevations=new Float32Array(await(await fetch(d.assets.heightmap_bin)).arrayBuffer());
+    sharpElevations=d.assets.heightmap_sharp_bin?new Float32Array(await(await fetch(d.assets.heightmap_sharp_bin)).arrayBuffer()):rawElevations;
+    groundElevations=null;
+    if(d.assets.ground_bin){try{groundElevations=new Float32Array(await(await fetch(d.assets.ground_bin)).arrayBuffer());}catch(e){}}
+    const L=new THREE.TextureLoader();
+    texRGB=await L.loadAsync(d.assets.texture);
+    texRGB.colorSpace=THREE.SRGBColorSpace;
+    texRGB.wrapS=texRGB.wrapT=THREE.ClampToEdgeWrapping;
+    texAO=null;
+    if(d.assets.ao){try{texAO=await L.loadAsync(d.assets.ao);texAO.colorSpace=THREE.NoColorSpace;}catch(e){}}
+    texError=null;
+    document.querySelector('[data-layer="error"]').style.display='none';
+    if(d.assets.error_map){try{texError=await L.loadAsync(d.assets.error_map);
+      document.querySelector('[data-layer="error"]').style.display='';}catch(e){}}
+    $('thIn').src=d.assets.texture;
+    $('thDepth').src=d.assets.depth_turbo||d.assets.texture;
+    $('thElev').src=d.assets.elevation_metric||d.assets.heightmap;
+    buildSlopeTexture();buildAGLTexture();buildMesh();fillPanels(d);scrim(false);
+  }catch(e){console.error(e);scrim(true,'Could not load terrain',e.message);}
+}
+function scrim(on,tx,sub){
+  $('scrim').classList.toggle('on',on);
+  if(tx)$('scrimTx').textContent=tx;
+  $('scrimSub').textContent=sub||'';
+}
+function buildSlopeTexture(){
+  const w=manifest.width,h=manifest.height;
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d'),im=ctx.createImageData(w,h),D=im.data;
+  slopeAngles=new Float32Array(w*h);
+  const gsd=(manifest.is_georeferenced&&manifest.gsd_m)?manifest.gsd_m:1.0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x;
+    const x0=Math.max(0,x-1),x1=Math.min(w-1,x+1),y0=Math.max(0,y-1),y1=Math.min(h-1,y+1);
+    const dzdx=(rawElevations[y*w+x1]-rawElevations[y*w+x0])/((x1-x0)*gsd);
+    const dzdy=(rawElevations[y1*w+x]-rawElevations[y0*w+x])/((y1-y0)*gsd);
+    const s=Math.atan(Math.hypot(dzdx,dzdy))*180/Math.PI;
+    slopeAngles[i]=s;const p=i*4;
+    if(s<15){D[p]=16;D[p+1]=185;D[p+2]=129;}
+    else if(s<30){D[p]=245;D[p+1]=158;D[p+2]=11;}
+    else{D[p]=239;D[p+1]=68;D[p+2]=68;}
+    D[p+3]=255;
+  }
+  ctx.putImageData(im,0,0);
+  texSlope=new THREE.CanvasTexture(c);
+  texSlope.wrapS=texSlope.wrapT=THREE.ClampToEdgeWrapping;
+}
+function buildAGLTexture(){
+  if(!groundElevations){texAGL=null;return;}
+  const w=manifest.width,h=manifest.height;
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d'),im=ctx.createImageData(w,h),D=im.data;
+  let mx=0;
+  for(let i=0;i<rawElevations.length;i++)mx=Math.max(mx,rawElevations[i]-groundElevations[i]);
+  mx=Math.max(mx,1e-6);
+  for(let i=0;i<rawElevations.length;i++){
+    const t=Math.min(1,Math.max(0,(rawElevations[i]-groundElevations[i])/mx)),p=i*4;
+    D[p]=Math.round(255*Math.pow(t,1.6));
+    D[p+1]=Math.round(60+195*Math.pow(t,.8));
+    D[p+2]=Math.round(90+165*Math.pow(t,.5));
+    D[p+3]=255;
+  }
+  ctx.putImageData(im,0,0);
+  texAGL=new THREE.CanvasTexture(c);
+  texAGL.wrapS=texAGL.wrapT=THREE.ClampToEdgeWrapping;
+}
+function buildMesh(){
+  if(terrainMesh){scene.remove(terrainMesh);terrainGeometry.dispose();terrainMaterial.dispose();}
+  const w=manifest.width,h=manifest.height;
+  const W=500,H=500/manifest.aspect_ratio;
+  worldSize={w:W,h:H};
+  const sd=Math.max(W,H)*.72;
+  sun.shadow.camera.left=-sd;sun.shadow.camera.right=sd;
+  sun.shadow.camera.top=sd;sun.shadow.camera.bottom=-sd;
+  sun.shadow.camera.updateProjectionMatrix();
+  terrainGeometry=new THREE.PlaneGeometry(W,H,w-1,h-1);
+  terrainGeometry.rotateX(-Math.PI/2);
+  baseDatum=manifest.min_elevation_m;
+  heightScale=(W/w)*(manifest.is_georeferenced?1.0:60.0);
+  if(manifest.is_georeferenced&&manifest.gsd_m)heightScale=W/(w*manifest.gsd_m);
+  applyDisplacement();
+  if(texAO&&!terrainGeometry.attributes.uv1)
+    terrainGeometry.setAttribute('uv1',terrainGeometry.attributes.uv);
+  terrainMaterial=new THREE.MeshStandardMaterial({map:texRGB,aoMap:texAO||null,
+    aoMapIntensity:1.35,roughness:.92,metalness:0,envMapIntensity:.35});
+  terrainMesh=new THREE.Mesh(terrainGeometry,terrainMaterial);
+  terrainMesh.castShadow=terrainMesh.receiveShadow=true;
+  scene.add(terrainMesh);
+  setLayer(layer);resetCamera();
+  $('sbVerts').textContent=(w*h/1000).toFixed(0)+'k verts ('+w+'x'+h+')';
+  $('sliceSlider').max=String(h-1);
+  $('sliceSlider').value=String(Math.floor(h/2));
+  drawProfile();
+}
+function applyDisplacement(){
+  if(!terrainGeometry||!rawElevations)return;
+  const exag=1.5,sharp=.85;
+  const pos=terrainGeometry.attributes.position;
+  const useSharp=sharpElevations&&sharpElevations.length===rawElevations.length;
+  for(let i=0;i<pos.count;i++){
+    const v=useSharp?rawElevations[i]*(1-sharp)+sharpElevations[i]*sharp:rawElevations[i];
+    pos.setY(i,(v-baseDatum)*heightScale*exag);
+  }
+  pos.needsUpdate=true;
+  terrainGeometry.computeVertexNormals();
+  const n=terrainGeometry.attributes.normal;
+  for(let i=0;i<n.count;i++)if(n.getY(i)>.82)n.setXYZ(i,0,1,0);
+  n.needsUpdate=true;
+  terrainGeometry.computeBoundingSphere();
+  rebuildSkirt();
+}
+function rebuildSkirt(){
+  const w=manifest.width,h=manifest.height,pos=terrainGeometry.attributes.position;
+  const ring=[];
+  for(let x=0;x<w;x++)ring.push(x);
+  for(let y=1;y<h;y++)ring.push(y*w+w-1);
+  for(let x=w-2;x>=0;x--)ring.push((h-1)*w+x);
+  for(let y=h-2;y>=1;y--)ring.push(y*w);
+  let minY=Infinity;
+  for(const i of ring)minY=Math.min(minY,pos.getY(i));
+  const baseY=minY-Math.max(18,worldSize.w*.075);
+  const n=ring.length;
+  const V=new Float32Array(n*6+12),C=new Float32Array(n*6+12);
+  const top=new THREE.Color(0x6b6255),bot=new THREE.Color(0x141a24);
+  for(let i=0;i<n;i++){
+    const vi=ring[i],x=pos.getX(vi),y=pos.getY(vi),z=pos.getZ(vi);
+    V[i*6]=x;V[i*6+1]=y;V[i*6+2]=z;V[i*6+3]=x;V[i*6+4]=baseY;V[i*6+5]=z;
+    top.toArray(C,i*6);bot.toArray(C,i*6+3);
+  }
+  const idx=[];
+  for(let i=0;i<n;i++){const a=i*2,b=a+1,j=(i+1)%n,c=j*2,d=c+1;idx.push(a,b,c,b,d,c);}
+  const hw=worldSize.w/2,hh=worldSize.h/2,cs=n*2;
+  V.set([-hw,baseY,-hh,hw,baseY,-hh,hw,baseY,hh,-hw,baseY,hh],n*6);
+  for(let i=0;i<4;i++)bot.toArray(C,n*6+i*3);
+  idx.push(cs,cs+2,cs+1,cs,cs+3,cs+2);
+  if(skirtMesh){scene.remove(skirtMesh);skirtGeometry.dispose();skirtMesh.material.dispose();}
+  skirtGeometry=new THREE.BufferGeometry();
+  skirtGeometry.setAttribute('position',new THREE.BufferAttribute(V,3));
+  skirtGeometry.setAttribute('color',new THREE.BufferAttribute(C,3));
+  skirtGeometry.setIndex(idx);skirtGeometry.computeVertexNormals();
+  skirtMesh=new THREE.Mesh(skirtGeometry,new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:.95,flatShading:true}));
+  skirtMesh.castShadow=skirtMesh.receiveShadow=true;scene.add(skirtMesh);
+}
+function resetCamera(){
+  const d=Math.max(worldSize.w,worldSize.h)*1.25;
+  camera.position.set(0,d*.72,d*.85);camera.lookAt(0,0,0);
+  orbit.target.set(0,0,0);orbit.update();
+}
+function toGrid(x,z){
+  const w=manifest.width,h=manifest.height;
+  return{fx:(x+worldSize.w/2)/(worldSize.w/(w-1)),fy:(z+worldSize.h/2)/(worldSize.h/(h-1)),w:w,h:h};
+}
+function sampleY(x,z){
+  if(!terrainGeometry)return null;
+  const g=toGrid(x,z);
+  if(g.fx<0||g.fy<0||g.fx>g.w-1||g.fy>g.h-1)return null;
+  const x0=Math.floor(g.fx),y0=Math.floor(g.fy);
+  const x1=Math.min(g.w-1,x0+1),y1=Math.min(g.h-1,y0+1);
+  const tx=g.fx-x0,ty=g.fy-y0,P=terrainGeometry.attributes.position;
+  const a=P.getY(y0*g.w+x0),b=P.getY(y0*g.w+x1),c=P.getY(y1*g.w+x0),d=P.getY(y1*g.w+x1);
+  return(a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;
+}
+function pick(ndc){
+  if(!terrainGeometry||!manifest)return null;
+  raycaster.setFromCamera(ndc,camera);
+  const ro=raycaster.ray.origin,rd=raycaster.ray.direction;
+  const hw=worldSize.w/2,hh=worldSize.h/2;
+  let tMin=0,tMax=6000;
+  const axes=[[ro.x,rd.x,hw],[ro.z,rd.z,hh]];
+  for(const ax of axes){
+    const o=ax[0],dc=ax[1],lim=ax[2];
+    if(Math.abs(dc)<1e-6){if(o<-lim||o>lim)return null;}
+    else{let t1=(-lim-o)/dc,t2=(lim-o)/dc;
+      if(t1>t2){const s=t1;t1=t2;t2=s;}
+      tMin=Math.max(tMin,t1);tMax=Math.min(tMax,t2);}
+  }
+  if(tMax<=tMin)return null;
+  const step=Math.max(.5,worldSize.w/manifest.width);
+  let pT=tMin,had=false;
+  for(let t=tMin;t<=tMax;t+=step){
+    const px=ro.x+rd.x*t,py=ro.y+rd.y*t,pz=ro.z+rd.z*t;
+    const ty=sampleY(px,pz);
+    if(ty===null){had=false;pT=t;continue;}
+    if(py-ty<=0){
+      let lo=had?pT:t-step,hi=t;
+      for(let k=0;k<12;k++){
+        const m=(lo+hi)/2,my=ro.y+rd.y*m,mt=sampleY(ro.x+rd.x*m,ro.z+rd.z*m);
+        if(mt===null||my-mt>0)lo=m;else hi=m;}
+      const ft=(lo+hi)/2;
+      const p=new THREE.Vector3(ro.x+rd.x*ft,ro.y+rd.y*ft,ro.z+rd.z*ft);
+      const g=toGrid(p.x,p.z);
+      return{point:p,px:Math.min(g.w-1,Math.max(0,Math.round(g.fx))),
+             py:Math.min(g.h-1,Math.max(0,Math.round(g.fy)))};
     }
-
-    function buildSkyDome() {
-      // Vertical-gradient sky dome. A flat black clear-colour reads as "unfinished
-      // WebGL canvas"; a graded horizon gives the terrain something to sit against
-      // and makes the silhouette legible from every camera angle.
-      const geo = new THREE.SphereGeometry(4000, 32, 16);
-      const mat = new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        depthWrite: false,
-        fog: false,
-        uniforms: {
-          topColor:     { value: new THREE.Color(0x050a16) },
-          midColor:     { value: new THREE.Color(0x14263f) },
-          horizonColor: { value: new THREE.Color(0x2e4a63) },
-        },
-        vertexShader: `
-          varying vec3 vWorld;
-          void main() {
-            vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }`,
-        fragmentShader: `
-          uniform vec3 topColor, midColor, horizonColor;
-          varying vec3 vWorld;
-          void main() {
-            float hgt = normalize(vWorld).y;
-            vec3 col = mix(horizonColor, midColor, smoothstep(-0.05, 0.35, hgt));
-            col = mix(col, topColor, smoothstep(0.3, 0.9, hgt));
-            // subtle haze band right at the horizon line
-            col += vec3(0.05, 0.06, 0.07) * (1.0 - smoothstep(0.0, 0.16, abs(hgt)));
-            gl_FragColor = vec4(col, 1.0);
-          }`,
-      });
-      skyDome = new THREE.Mesh(geo, mat);
-      skyDome.frustumCulled = false;
-      scene.add(skyDome);
-    }
-
-    function rebuildTerrainSkirt() {
-      // Extrude the terrain boundary downward into solid side walls plus a base cap.
-      // Without this the mesh reads as a paper-thin sheet floating in space; with it
-      // the scene reads as a physical block of extracted terrain.
-      if (!terrainGeometry || !currentManifest) return;
-
-      const w = currentManifest.width;
-      const h = currentManifest.height;
-      const pos = terrainGeometry.attributes.position;
-
-      // Walk the boundary ring in order.
-      const ring = [];
-      for (let x = 0; x < w; x++) ring.push(x);                       // top edge
-      for (let y = 1; y < h; y++) ring.push(y * w + (w - 1));          // right edge
-      for (let x = w - 2; x >= 0; x--) ring.push((h - 1) * w + x);     // bottom edge
-      for (let y = h - 2; y >= 1; y--) ring.push(y * w);               // left edge
-
-      let minY = Infinity;
-      for (let i = 0; i < ring.length; i++) minY = Math.min(minY, pos.getY(ring[i]));
-      const baseY = minY - Math.max(18, terrainWorldSize.w * 0.075);
-
-      const n = ring.length;
-      const verts = new Float32Array(n * 2 * 3);
-      const cols = new Float32Array(n * 2 * 3);
-      // Strata colouring: warm rock at the cut face, darkening with depth.
-      const top = new THREE.Color(0x6b6255);
-      const bot = new THREE.Color(0x141a24);
-
-      for (let i = 0; i < n; i++) {
-        const vi = ring[i];
-        const x = pos.getX(vi), y = pos.getY(vi), z = pos.getZ(vi);
-        verts[i * 6 + 0] = x; verts[i * 6 + 1] = y;     verts[i * 6 + 2] = z;
-        verts[i * 6 + 3] = x; verts[i * 6 + 4] = baseY; verts[i * 6 + 5] = z;
-        top.toArray(cols, i * 6);
-        bot.toArray(cols, i * 6 + 3);
-      }
-
-      const idx = [];
-      for (let i = 0; i < n; i++) {
-        const a = i * 2, b = a + 1;
-        const j = (i + 1) % n;
-        const c = j * 2, dd = c + 1;
-        idx.push(a, b, c, b, dd, c);
-      }
-      // Base cap (two triangles across the footprint).
-      const hw = terrainWorldSize.w / 2, hh = terrainWorldSize.h / 2;
-      const capStart = n * 2;
-      const capVerts = [-hw, baseY, -hh, hw, baseY, -hh, hw, baseY, hh, -hw, baseY, hh];
-      const allVerts = new Float32Array(verts.length + capVerts.length);
-      allVerts.set(verts); allVerts.set(capVerts, verts.length);
-      const allCols = new Float32Array(cols.length + 12);
-      allCols.set(cols);
-      for (let i = 0; i < 4; i++) bot.toArray(allCols, cols.length + i * 3);
-      idx.push(capStart, capStart + 2, capStart + 1, capStart, capStart + 3, capStart + 2);
-
-      if (skirtMesh) { scene.remove(skirtMesh); skirtGeometry.dispose(); skirtMesh.material.dispose(); }
-
-      skirtGeometry = new THREE.BufferGeometry();
-      skirtGeometry.setAttribute('position', new THREE.BufferAttribute(allVerts, 3));
-      skirtGeometry.setAttribute('color', new THREE.BufferAttribute(allCols, 3));
-      skirtGeometry.setIndex(idx);
-      skirtGeometry.computeVertexNormals();
-
-      skirtMesh = new THREE.Mesh(skirtGeometry, new THREE.MeshStandardMaterial({
-        vertexColors: true, roughness: 0.95, metalness: 0.0, flatShading: true,
-      }));
-      skirtMesh.castShadow = true;
-      skirtMesh.receiveShadow = true;
-      scene.add(skirtMesh);
-    }
-
-    function updateSunPosition(azimuthDeg, elevationDeg) {
-      const azRad = THREE.MathUtils.degToRad(azimuthDeg);
-      const elRad = THREE.MathUtils.degToRad(elevationDeg);
-      const distance = 850;
-
-      const x = distance * Math.cos(elRad) * Math.sin(azRad);
-      const y = distance * Math.sin(elRad);
-      const z = distance * Math.cos(elRad) * Math.cos(azRad);
-
-      directionalLight.position.set(x, y, z);
-    }
-
-    window.setSunPreset = function(az, el, elem) {
-      document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
-      if (elem) elem.classList.add('active');
-      document.getElementById('sun-slider').value = az;
-      document.getElementById('sun-val').textContent = az + '°';
-      document.getElementById('sun-elev-slider').value = el;
-      document.getElementById('sun-elev-val').textContent = el + '°';
-      updateSunPosition(az, el);
-    };
-
-    async function loadTerrainJob(jobId) {
-      showLoading(true, "Downloading 3D Mesh Assets & Elevation Buffer...");
-      try {
-        const manifestRes = await fetch(`/api/result/${jobId}`);
-        if (!manifestRes.ok) throw new Error("Could not load job manifest.");
-        const data = await manifestRes.json();
-        currentManifest = data.manifest;
-
-        // Fetch primary raw elevation buffer (float32)
-        const binRes = await fetch(data.assets.heightmap_bin);
-        if (!binRes.ok) throw new Error("Could not load binary elevation buffer.");
-        rawElevations = new Float32Array(await binRes.arrayBuffer());
-
-        // Fetch regularized sharp cuboid elevation buffer if available
-        if (data.assets.heightmap_sharp_bin) {
-          try {
-            const sharpRes = await fetch(data.assets.heightmap_sharp_bin);
-            if (sharpRes.ok) {
-              sharpElevations = new Float32Array(await sharpRes.arrayBuffer());
-            }
-          } catch (e) {
-            console.warn("Sharp heightmap not available:", e);
-            sharpElevations = rawElevations;
-          }
-        } else {
-          sharpElevations = rawElevations;
-        }
-
-        // Fetch RGB Texture
-        const textureLoader = new THREE.TextureLoader();
-        textureRGB = await textureLoader.loadAsync(data.assets.texture);
-        textureRGB.wrapS = THREE.ClampToEdgeWrapping;
-        textureRGB.wrapT = THREE.ClampToEdgeWrapping;
-        textureRGB.colorSpace = THREE.SRGBColorSpace;
-
-        // Baked sky-view ambient occlusion (see src/mesh_export.compute_sky_view_ao)
-        textureAO = null;
-        if (data.assets.ao) {
-          try {
-            textureAO = await textureLoader.loadAsync(data.assets.ao);
-            textureAO.wrapS = THREE.ClampToEdgeWrapping;
-            textureAO.wrapT = THREE.ClampToEdgeWrapping;
-            textureAO.colorSpace = THREE.NoColorSpace;
-          } catch (e) { textureAO = null; }
-        }
-
-        // Check if error map exists for georeferenced SRTM validation
-        if (data.assets.error_map) {
-          try {
-            textureError = await textureLoader.loadAsync(data.assets.error_map);
-            textureError.wrapS = THREE.ClampToEdgeWrapping;
-            textureError.wrapT = THREE.ClampToEdgeWrapping;
-            document.getElementById('shader-error').style.display = 'inline-flex';
-          } catch (e) {
-            textureError = null;
-          }
-        } else {
-          textureError = null;
-          document.getElementById('shader-error').style.display = 'none';
-        }
-
-        // Compute Slope Hazard Colormap
-        generateSlopeColormap(currentManifest, rawElevations);
-
-        // Build 3D Mesh
-        buildTerrainMesh(currentManifest);
-        updateHUD(currentManifest);
-        populateValidationCard(currentManifest);
-
-        showLoading(false);
-      } catch (err) {
-        console.error("Failed to load terrain:", err);
-        showLoading(true, "Failed to load terrain: " + err.message);
-      }
-    }
-
-    function generateSlopeColormap(manifest, elevations) {
-      const w = manifest.width;
-      const h = manifest.height;
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      const imgData = ctx.createImageData(w, h);
-      const data = imgData.data;
-
-      slopeAngles = new Float32Array(w * h);
-
-      // Estimate pixel size in metres
-      const gsd = (manifest.is_georeferenced && manifest.gsd_m) ? manifest.gsd_m : 1.0;
-
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const idx = y * w + x;
-          
-          // Central difference slope
-          const x0 = Math.max(0, x - 1);
-          const x1 = Math.min(w - 1, x + 1);
-          const y0 = Math.max(0, y - 1);
-          const y1 = Math.min(h - 1, y + 1);
-
-          const dzdx = (elevations[y * w + x1] - elevations[y * w + x0]) / ((x1 - x0) * gsd);
-          const dzdy = (elevations[y1 * w + x] - elevations[y0 * w + x]) / ((y1 - y0) * gsd);
-          const grad = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
-          const slopeDeg = Math.atan(grad) * (180 / Math.PI);
-          slopeAngles[idx] = slopeDeg;
-
-          // Color classification:
-          // < 15 deg: Green (#10b981)
-          // 15 - 30 deg: Yellow (#f59e0b)
-          // > 30 deg: Red (#ef4444)
-          const pIdx = idx * 4;
-          if (slopeDeg < 15) {
-            data[pIdx] = 16;
-            data[pIdx + 1] = 185;
-            data[pIdx + 2] = 129;
-            data[pIdx + 3] = 255;
-          } else if (slopeDeg < 30) {
-            data[pIdx] = 245;
-            data[pIdx + 1] = 158;
-            data[pIdx + 2] = 11;
-            data[pIdx + 3] = 255;
-          } else {
-            data[pIdx] = 239;
-            data[pIdx + 1] = 68;
-            data[pIdx + 2] = 68;
-            data[pIdx + 3] = 255;
-          }
-        }
-      }
-
-      ctx.putImageData(imgData, 0, 0);
-      textureSlope = new THREE.CanvasTexture(canvas);
-      textureSlope.wrapS = THREE.ClampToEdgeWrapping;
-      textureSlope.wrapT = THREE.ClampToEdgeWrapping;
-    }
-
-    function buildTerrainMesh(manifest) {
-      if (terrainMesh) {
-        scene.remove(terrainMesh);
-        terrainGeometry.dispose();
-        terrainMaterial.dispose();
-      }
-
-      const w = manifest.width;
-      const h = manifest.height;
-      const worldScale = 500;
-      const worldWidth = worldScale;
-      const worldHeight = worldScale / manifest.aspect_ratio;
-      terrainWorldSize = { w: worldWidth, h: worldHeight };
-
-      // Fit the shadow frustum to the actual footprint: a frustum much larger than
-      // the terrain wastes depth-map resolution and produces soft, muddy shadows.
-      const sd = Math.max(worldWidth, worldHeight) * 0.72;
-      directionalLight.shadow.camera.left = -sd;
-      directionalLight.shadow.camera.right = sd;
-      directionalLight.shadow.camera.top = sd;
-      directionalLight.shadow.camera.bottom = -sd;
-      directionalLight.shadow.camera.updateProjectionMatrix();
-
-      terrainGeometry = new THREE.PlaneGeometry(worldWidth, worldHeight, w - 1, h - 1);
-      terrainGeometry.rotateX(-Math.PI / 2);
-
-      baseDatum = manifest.min_elevation_m;
-      heightScale = (worldWidth / w) * (manifest.is_georeferenced ? 1.0 : 60.0);
-      if (manifest.is_georeferenced && manifest.gsd_m) {
-        heightScale = worldWidth / (w * manifest.gsd_m);
-      }
-
-      applyElevationDisplacement();
-
-      // aoMap samples the uv1 channel; PlaneGeometry only provides uv, so alias it.
-      if (textureAO && !terrainGeometry.attributes.uv1) {
-        terrainGeometry.setAttribute('uv1', terrainGeometry.attributes.uv);
-      }
-
-      terrainMaterial = new THREE.MeshStandardMaterial({
-        map: textureRGB,
-        aoMap: textureAO || null,
-        aoMapIntensity: 1.35,
-        wireframe: false,
-        roughness: 0.92,
-        metalness: 0.0,
-        envMapIntensity: 0.35,
-        flatShading: false,
-      });
-
-      terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
-      terrainMesh.receiveShadow = true;
-      terrainMesh.castShadow = true;
-      scene.add(terrainMesh);
-
-      resetCameraView(worldWidth, worldHeight);
-      document.getElementById('verts-stat').textContent = `${(w * h / 1000).toFixed(0)}k Verts (${w}x${h})`;
-    }
-
-    function applyElevationDisplacement() {
-      if (!terrainGeometry || !rawElevations) return;
-
-      const exag = parseFloat(document.getElementById('exag-slider').value);
-      const sharpSlider = parseFloat(document.getElementById('sharp-slider').value);
-      const pos = terrainGeometry.attributes.position;
-      const w = currentManifest.width;
-      const h = currentManifest.height;
-
-      const useSharp = sharpElevations && sharpElevations.length === rawElevations.length;
-
-      for (let i = 0; i < pos.count; i++) {
-        let val = rawElevations[i];
-        if (useSharp) {
-          // Dynamic interpolation between smooth raw and architectural cuboid plateaus
-          val = rawElevations[i] * (1.0 - sharpSlider) + sharpElevations[i] * sharpSlider;
-        }
-
-        const displacedY = (val - baseDatum) * heightScale * exag;
-        pos.setY(i, displacedY);
-      }
-
-      pos.needsUpdate = true;
-
-      // Calculate Normals: Edge-Preserving Crease Normals for Crisp Cuboids
-      if (useSharpFacades) {
-        computeArchitecturalNormals(pos, w, h);
-      } else {
-        terrainGeometry.computeVertexNormals();
-      }
-
-      terrainGeometry.computeBoundingSphere();
-      rebuildTerrainSkirt();
-    }
-
-    function computeArchitecturalNormals(pos, w, h) {
-      terrainGeometry.computeVertexNormals();
-      const norm = terrainGeometry.attributes.normal;
-
-      // Snap flat roofs/terrain upward and vertical facades outward
-      for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-          const idx = y * w + x;
-          const ny = norm.getY(idx);
-
-          // If face is horizontal (flat roof or flat ground), enforce pure vertical normal
-          if (ny > 0.82) {
-            norm.setXYZ(idx, 0, 1, 0);
-          }
-        }
-      }
-      norm.needsUpdate = true;
-    }
-
-    function resetCameraView(worldWidth, worldHeight) {
-      const dist = Math.max(worldWidth, worldHeight) * 1.25;
-      camera.position.set(0, dist * 0.75, dist * 0.85);
-      camera.lookAt(0, 0, 0);
-      if (orbitControls) {
-        orbitControls.target.set(0, 0, 0);
-        orbitControls.update();
-      }
-    }
-
-    function updateHUD(manifest) {
-      const statusGeo = document.getElementById('status-geo');
-      const hudDatum = document.getElementById('hud-datum');
-      const hudSpan = document.getElementById('hud-span');
-      const hudGsd = document.getElementById('hud-gsd');
-
-      if (manifest.is_georeferenced) {
-        statusGeo.style.display = 'inline-flex';
-        statusGeo.textContent = `SRTM METRIC (${manifest.crs || 'EPSG:4326'})`;
-        hudDatum.textContent = `SRTM Datum (${manifest.min_elevation_m}m ASL)`;
-        hudSpan.textContent = `${manifest.min_elevation_m}m to ${manifest.max_elevation_m}m (${manifest.elevation_span_m}m span)`;
-        hudGsd.textContent = manifest.gsd_m ? `${manifest.gsd_m} m/pixel` : 'Estimated';
-      } else {
-        statusGeo.style.display = 'none';
-        hudDatum.textContent = 'Relative rDSM (Unitless)';
-        hudSpan.textContent = '0.00 to 1.00 (Normalized)';
-        hudGsd.textContent = 'Non-georeferenced';
-      }
-
-      syncPanelLayout();
-    }
-
-    /**
-     * Per-scene validation readout.
-     *
-     * NOTE: every value here is either measured or shown as an em-dash. Earlier
-     * revisions fell back to hardcoded literals ("2.01 m", "0.992", "95.3%") when a
-     * scene had no validation data, which meant the panel could display numbers that
-     * were never computed for the scene on screen. Never reintroduce that.
-     */
-    function populateValidationCard(manifest) {
-      const val = manifest.validation;
-      const btnDrape = document.getElementById('btn-drape-error');
-      const set = (id, v) => { document.getElementById(id).textContent = v; };
-      const num = (v, fmt) => (typeof v === 'number' && isFinite(v)) ? fmt(v) : '—';
-
-      if (val && manifest.is_georeferenced) {
-        set('val-rmse', num(val.rmse, v => `${v.toFixed(2)} m`));
-        set('val-mae', num(val.mae, v => `${v.toFixed(2)} m`));
-        set('val-corr', num(val.pearson_r, v => v.toFixed(3)));
-        set('val-inlier', num(val.inlier_fraction, v => `${(v * 100).toFixed(1)}%`));
-        btnDrape.style.display = 'block';
-      } else {
-        // Relative rDSM: there is no metric ground truth for this scene, so report
-        // the distribution statistics we actually have instead of accuracy figures.
-        set('val-rmse', 'N/A (relative)');
-        set('val-mae', 'N/A (relative)');
-        set('val-corr', val && typeof val.std === 'number' ? `std = ${val.std.toFixed(3)}` : '—');
-        set('val-inlier', 'Unitless rDSM');
-        btnDrape.style.display = 'none';
-      }
-      loadBenchmarkPanel();
-    }
-
-    /**
-     * Independent benchmark: RMSE/MAE vs LiDAR-derived ground truth on the held-out
-     * GAMUS test split. This is the number that actually answers "is the DSM
-     * accurate", because unlike the SRTM figures above it is not measured against
-     * the same data used to calibrate the scene.
-     */
-    async function loadBenchmarkPanel() {
-      const box = document.getElementById('benchmark-box');
-      if (!box) return;
-      try {
-        const res = await fetch('/api/benchmark');
-        if (!res.ok) { box.style.display = 'none'; return; }
-        const b = await res.json();
-        if (!b || !b.overall) { box.style.display = 'none'; return; }
-
-        document.getElementById('bm-rmse').textContent = `${b.overall.rmse.toFixed(2)} m`;
-        document.getElementById('bm-mae').textContent = `${b.overall.mae.toFixed(2)} m`;
-        document.getElementById('bm-corr').textContent = b.overall.pearson_r.toFixed(3);
-        document.getElementById('bm-sub').textContent =
-          `${b.dataset} · ${b.n_tiles} tiles · ${b.cities.join('/')} · LiDAR nDSM`;
-
-        const rows = (b.per_class || []).map(c =>
-          `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">
-             <span style="color:var(--text-muted)">${c.name}</span>
-             <span style="font-family:var(--font-mono)">${c.rmse.toFixed(2)} m
-               <span style="color:var(--text-dim)"> (n=${c.n_px_m})</span></span>
-           </div>`).join('');
-        document.getElementById('bm-classes').innerHTML = rows;
-        box.style.display = 'flex';
-      } catch (e) {
-        box.style.display = 'none';
-      }
-    }
-
-    /**
-     * World XZ -> grid indices for the displaced terrain plane.
-     * PlaneGeometry(W,H,w-1,h-1).rotateX(-PI/2) lays vertex (ix,iy) at
-     * x = -W/2 + ix*stepX, z = -H/2 + iy*stepZ, so the mapping is exact.
-     */
-    function worldToGrid(x, z) {
-      const w = currentManifest.width, h = currentManifest.height;
-      const stepX = terrainWorldSize.w / (w - 1);
-      const stepZ = terrainWorldSize.h / (h - 1);
-      return {
-        fx: (x + terrainWorldSize.w / 2) / stepX,
-        fy: (z + terrainWorldSize.h / 2) / stepZ,
-        w, h,
-      };
-    }
-
-    /** Displaced world-space height at an arbitrary XZ, bilinearly interpolated. */
-    function sampleTerrainY(x, z) {
-      if (!terrainGeometry) return null;
-      const { fx, fy, w, h } = worldToGrid(x, z);
-      if (fx < 0 || fy < 0 || fx > w - 1 || fy > h - 1) return null;
-      const x0 = Math.floor(fx), y0 = Math.floor(fy);
-      const x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
-      const tx = fx - x0, ty = fy - y0;
-      const P = terrainGeometry.attributes.position;
-      const a = P.getY(y0 * w + x0), b = P.getY(y0 * w + x1);
-      const c = P.getY(y1 * w + x0), d = P.getY(y1 * w + x1);
-      return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
-    }
-
-    /**
-     * Ray-march the heightfield instead of raycasting triangles.
-     *
-     * WHY: Three.js Mesh.raycast() tests every triangle in the geometry. At 585k
-     * vertices that measured ~52 ms per call, and mousemove fires far more often
-     * than once per frame - which pinned the whole viewer at ~19 FPS whenever the
-     * cursor moved. The terrain is a regular grid, so marching the ray and doing
-     * O(1) array lookups is exact enough and ~1000x cheaper.
-     */
-    function pickTerrain(ndc) {
-      if (!terrainGeometry || !currentManifest) return null;
-      raycaster.setFromCamera(ndc, camera);
-      const ro = raycaster.ray.origin, rd = raycaster.ray.direction;
-
-      const hw = terrainWorldSize.w / 2, hh = terrainWorldSize.h / 2;
-      // Slab test against the XZ footprint to find the useful t-range.
-      let tMin = 0, tMax = 6000;
-      for (const [o, dcomp, lim] of [[ro.x, rd.x, hw], [ro.z, rd.z, hh]]) {
-        if (Math.abs(dcomp) < 1e-6) {
-          if (o < -lim || o > lim) return null;
-        } else {
-          let t1 = (-lim - o) / dcomp, t2 = (lim - o) / dcomp;
-          if (t1 > t2) { const s = t1; t1 = t2; t2 = s; }
-          tMin = Math.max(tMin, t1);
-          tMax = Math.min(tMax, t2);
-        }
-      }
-      if (tMax <= tMin) return null;
-
-      const step = Math.max(0.5, terrainWorldSize.w / currentManifest.width);
-      let prevT = tMin, prevDiff = null;
-      for (let t = tMin; t <= tMax; t += step) {
-        const px = ro.x + rd.x * t, py = ro.y + rd.y * t, pz = ro.z + rd.z * t;
-        const ty = sampleTerrainY(px, pz);
-        if (ty === null) { prevDiff = null; prevT = t; continue; }
-        const diff = py - ty;
-        if (diff <= 0) {
-          // Bisect between the last above-surface sample and this one.
-          let lo = prevDiff !== null ? prevT : t - step, hi = t;
-          for (let k = 0; k < 12; k++) {
-            const m = (lo + hi) / 2;
-            const mx = ro.x + rd.x * m, my = ro.y + rd.y * m, mz = ro.z + rd.z * m;
-            const mty = sampleTerrainY(mx, mz);
-            if (mty === null || my - mty > 0) lo = m; else hi = m;
-          }
-          const ft = (lo + hi) / 2;
-          const hit = new THREE.Vector3(ro.x + rd.x * ft, ro.y + rd.y * ft, ro.z + rd.z * ft);
-          const g = worldToGrid(hit.x, hit.z);
-          return {
-            point: hit,
-            px: Math.min(g.w - 1, Math.max(0, Math.round(g.fx))),
-            py: Math.min(g.h - 1, Math.max(0, Math.round(g.fy))),
-          };
-        }
-        prevDiff = diff; prevT = t;
-      }
-      return null;
-    }
-
-    function onMouseMove(event) {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      hoverDirty = true;   // resolved once per frame in animate(), not per event
-    }
-
-    function updateHoverReadout() {
-      if (!terrainMesh || flythroughActive || !currentManifest) return;
-      const elevReadout = document.getElementById('cursor-elevation');
-      const slopeReadout = document.getElementById('cursor-slope');
-
-      const hit = pickTerrain(mouse);
-      if (hit) {
-        const idx = hit.py * currentManifest.width + hit.px;
-        if (rawElevations && idx < rawElevations.length) {
-          const elev = rawElevations[idx];
-          elevReadout.textContent = currentManifest.is_georeferenced
-            ? `${elev.toFixed(1)} m ASL`
-            : `${(elev * 100).toFixed(1)}% Relative`;
-          if (slopeAngles && idx < slopeAngles.length) {
-            const slope = slopeAngles[idx];
-            const tag = slope < 15 ? " (Gentle)" : (slope < 30 ? " (Moderate)" : " (Steep Facade)");
-            slopeReadout.textContent = `${slope.toFixed(1)}°${tag}`;
-          }
-        }
-      } else {
-        elevReadout.textContent = '--';
-        slopeReadout.textContent = '--';
-      }
-    }
-
-    function onCanvasClick(event) {
-      if (!measureModeActive || !terrainMesh) return;
-
-      const hit = pickTerrain(mouse);
-      if (!hit) return;
-      const pt = hit.point;
-
-      // Extract elevation at hit
-      let elev = 0;
-      if (rawElevations) {
-        elev = rawElevations[hit.py * currentManifest.width + hit.px];
-      }
-
-      measurePoints.push({ point: pt.clone(), elev: elev });
-
-      // Add visual beacon sphere
-      const markerGeo = new THREE.SphereGeometry(3.5, 16, 16);
-      const markerMat = new THREE.MeshBasicMaterial({ 
-        color: measurePoints.length === 1 ? 0x38bdf8 : 0x10b981 
-      });
-      const marker = new THREE.Mesh(markerGeo, markerMat);
-      marker.position.copy(pt);
-      scene.add(marker);
-      measureMarkers.push(marker);
-
-      const instruction = document.getElementById('measure-instruction');
-      const results = document.getElementById('measure-results');
-
-      if (measurePoints.length === 1) {
-        instruction.textContent = "Point 1 set. Click Point 2 on building rooftop...";
-      } else if (measurePoints.length === 2) {
-        // Draw 3D laser line
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([measurePoints[0].point, measurePoints[1].point]);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 3 });
-        measureLine = new THREE.Line(lineGeo, lineMat);
-        scene.add(measureLine);
-
-        // Compute exact metric height difference
-        const dh = Math.abs(measurePoints[1].elev - measurePoints[0].elev);
-        const groundDist = Math.hypot(
-          measurePoints[1].point.x - measurePoints[0].point.x,
-          measurePoints[1].point.z - measurePoints[0].point.z
-        );
-        const slopeDeg = groundDist > 0 ? (Math.atan(dh / groundDist) * 180 / Math.PI) : 90;
-
-        instruction.style.display = 'none';
-        results.style.display = 'inline';
-        document.getElementById('measure-dh').textContent = currentManifest.is_georeferenced 
-          ? `+${dh.toFixed(1)} m` 
-          : `+${(dh * 100).toFixed(1)}%`;
-        document.getElementById('measure-dist').textContent = `${groundDist.toFixed(1)}m`;
-        document.getElementById('measure-slope').textContent = `${slopeDeg.toFixed(1)}°`;
-      } else {
-        clearMeasurement();
-      }
-    }
-
-    function clearMeasurement() {
-      measurePoints = [];
-      if (measureLine) {
-        scene.remove(measureLine);
-        measureLine.geometry.dispose();
-        measureLine = null;
-      }
-      measureMarkers.forEach(m => {
-        scene.remove(m);
-        m.geometry.dispose();
-      });
-      measureMarkers = [];
-      document.getElementById('measure-instruction').style.display = 'inline';
-      document.getElementById('measure-instruction').textContent = "Click Point 1 on ground / building base...";
-      document.getElementById('measure-results').style.display = 'none';
-    }
-
-    function setupUIEventListeners() {
-      // Turntable Auto-Rotate Toggle
-      const btnTurntable = document.getElementById('btn-turntable');
-      btnTurntable.addEventListener('click', () => {
-        autoRotateActive = !autoRotateActive;
-        orbitControls.autoRotate = autoRotateActive;
-        btnTurntable.classList.toggle('active', autoRotateActive);
-        btnTurntable.innerHTML = autoRotateActive 
-          ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Turntable: ON'
-          : '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Turntable: OFF';
-      });
-
-      // Turntable Speed Slider
-      const speedSlider = document.getElementById('speed-slider');
-      const speedVal = document.getElementById('speed-val');
-      speedSlider.addEventListener('input', () => {
-        const val = parseFloat(speedSlider.value);
-        speedVal.textContent = val.toFixed(1) + ' RPM';
-        orbitControls.autoRotateSpeed = val;
-      });
-
-      // Building Sharpness Slider
-      const sharpSlider = document.getElementById('sharp-slider');
-      const sharpVal = document.getElementById('sharp-val');
-      sharpSlider.addEventListener('input', () => {
-        sharpVal.textContent = Math.round(parseFloat(sharpSlider.value) * 100) + '%';
-        displacementDirty = true;
-      });
-
-      // Facade Normal Shading Toggle
-      const btnSmooth = document.getElementById('btn-facade-smooth');
-      const btnSharp = document.getElementById('btn-facade-sharp');
-      btnSmooth.addEventListener('click', () => {
-        useSharpFacades = false;
-        btnSmooth.classList.add('active');
-        btnSharp.classList.remove('active');
-        applyElevationDisplacement();
-      });
-      btnSharp.addEventListener('click', () => {
-        useSharpFacades = true;
-        btnSharp.classList.add('active');
-        btnSmooth.classList.remove('active');
-        applyElevationDisplacement();
-      });
-
-      // Vertical Exaggeration Slider
-      const exagSlider = document.getElementById('exag-slider');
-      const exagVal = document.getElementById('exag-val');
-      exagSlider.addEventListener('input', () => {
-        exagVal.textContent = parseFloat(exagSlider.value).toFixed(1) + 'x';
-        displacementDirty = true;
-      });
-
-      // Sun Lighting Controls
-      const sunSlider = document.getElementById('sun-slider');
-      const sunVal = document.getElementById('sun-val');
-      const sunElevSlider = document.getElementById('sun-elev-slider');
-      const sunElevVal = document.getElementById('sun-elev-val');
-
-      function onSunChange() {
-        sunVal.textContent = sunSlider.value + '°';
-        sunElevVal.textContent = sunElevSlider.value + '°';
-        updateSunPosition(parseFloat(sunSlider.value), parseFloat(sunElevSlider.value));
-      }
-      sunSlider.addEventListener('input', onSunChange);
-      sunElevSlider.addEventListener('input', onSunChange);
-
-      // Shaders
-      const shaderRGB = document.getElementById('shader-rgb');
-      const shaderSlope = document.getElementById('shader-slope');
-      const shaderError = document.getElementById('shader-error');
-      const shaderWire = document.getElementById('shader-wire');
-      const slopeLegend = document.getElementById('slope-legend');
-
-      function setShaderMode(mode) {
-        currentShaderMode = mode;
-        [shaderRGB, shaderSlope, shaderError, shaderWire].forEach(b => b.classList.remove('active'));
-        slopeLegend.style.display = (mode === 'slope') ? 'flex' : 'none';
-
-        if (!terrainMaterial) return;
-
-        terrainMaterial.wireframe = (mode === 'wire');
-
-        if (mode === 'rgb' && textureRGB) {
-          terrainMaterial.map = textureRGB;
-          shaderRGB.classList.add('active');
-        } else if (mode === 'slope' && textureSlope) {
-          terrainMaterial.map = textureSlope;
-          shaderSlope.classList.add('active');
-        } else if (mode === 'error' && textureError) {
-          terrainMaterial.map = textureError;
-          shaderError.classList.add('active');
-        } else if (mode === 'wire') {
-          shaderWire.classList.add('active');
-        }
-        terrainMaterial.needsUpdate = true;
-      }
-
-      shaderRGB.addEventListener('click', () => setShaderMode('rgb'));
-      shaderSlope.addEventListener('click', () => setShaderMode('slope'));
-      shaderError.addEventListener('click', () => setShaderMode('error'));
-      shaderWire.addEventListener('click', () => setShaderMode('wire'));
-
-      document.getElementById('btn-drape-error').addEventListener('click', () => {
-        setShaderMode('error');
-        document.getElementById('validation-panel').style.display = 'none';
-      });
-
-      // Toggle Validation Dashboard
-      const btnToggleVal = document.getElementById('btn-toggle-val');
-      const valPanel = document.getElementById('validation-panel');
-      btnToggleVal.addEventListener('click', () => {
-        valPanel.style.display = (valPanel.style.display === 'flex') ? 'none' : 'flex';
-      });
-
-      // Measure Height Tool Toggle
-      const btnMeasure = document.getElementById('btn-measure-tool');
-      const measureHud = document.getElementById('measure-hud');
-      btnMeasure.addEventListener('click', () => {
-        measureModeActive = !measureModeActive;
-        btnMeasure.classList.toggle('active', measureModeActive);
-        measureHud.style.display = measureModeActive ? 'flex' : 'none';
-        if (!measureModeActive) {
-          clearMeasurement();
-        }
-      });
-      document.getElementById('btn-measure-clear').addEventListener('click', clearMeasurement);
-
-      // Camera Navigation Toggle
-      const btnNav = document.getElementById('btn-nav-mode');
-      const flyReticle = document.getElementById('fly-reticle');
-      const flyGuide = document.getElementById('fly-guide');
-
-      btnNav.addEventListener('click', () => {
-        flythroughActive = !flythroughActive;
-        if (flythroughActive) {
-          orbitControls.enabled = false;
-          orbitControls.autoRotate = false;
-          btnNav.classList.add('active');
-          btnNav.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg> Exit Flythrough';
-          flyReticle.style.display = 'block';
-          flyGuide.style.display = 'block';
-          flyControls.lock();
-        } else {
-          flythroughActive = false;
-          flyControls.unlock();
-          orbitControls.enabled = true;
-          orbitControls.autoRotate = autoRotateActive;
-          btnNav.classList.remove('active');
-          btnNav.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Flythrough';
-          flyReticle.style.display = 'none';
-          flyGuide.style.display = 'none';
-        }
-      });
-
-      flyControls.addEventListener('unlock', () => {
-        if (flythroughActive) {
-          btnNav.click();
-        }
-      });
-
-      // Reset View
-      document.getElementById('btn-reset-view').addEventListener('click', () => {
-        if (currentManifest) {
-          const worldScale = 500;
-          resetCameraView(worldScale, worldScale / currentManifest.aspect_ratio);
-        }
-      });
-
-      // File Input Change
-      document.getElementById('file-input').addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-          uploadFile(e.target.files[0]);
-        }
-      });
-    }
-
-    function setupFlythroughKeys() {
-      const onKeyDown = (event) => {
-        switch (event.code) {
-          case 'KeyW': moveState.forward = true; break;
-          case 'KeyS': moveState.backward = true; break;
-          case 'KeyA': moveState.left = true; break;
-          case 'KeyD': moveState.right = true; break;
-          case 'Space': moveState.up = true; break;
-          case 'KeyC': moveState.down = true; break;
-        }
-      };
-      const onKeyUp = (event) => {
-        switch (event.code) {
-          case 'KeyW': moveState.forward = false; break;
-          case 'KeyS': moveState.backward = false; break;
-          case 'KeyA': moveState.left = false; break;
-          case 'KeyD': moveState.right = false; break;
-          case 'Space': moveState.up = false; break;
-          case 'KeyC': moveState.down = false; break;
-        }
-      };
-      document.addEventListener('keydown', onKeyDown);
-      document.addEventListener('keyup', onKeyUp);
-    }
-
-    function setupDragAndDrop() {
-      const overlay = document.getElementById('drop-overlay');
-      window.addEventListener('dragenter', (e) => { e.preventDefault(); overlay.classList.add('active'); });
-      overlay.addEventListener('dragover', (e) => { e.preventDefault(); });
-      overlay.addEventListener('dragleave', (e) => { e.preventDefault(); overlay.classList.remove('active'); });
-      overlay.addEventListener('drop', (e) => {
-        e.preventDefault();
-        overlay.classList.remove('active');
-        if (e.dataTransfer.files.length > 0) {
-          uploadFile(e.dataTransfer.files[0]);
-        }
-      });
-    }
-
-    async function uploadFile(file) {
-      showLoading(true, `Processing ${file.name} through AI Monocular & SRTM Pipeline...`);
-      const formData = new FormData();
-      formData.append("file", file);
-
-      try {
-        const response = await fetch("/api/process", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.detail || "Upload processing failed");
-        }
-
-        const data = await response.json();
-        await loadTerrainJob(data.job_id);
-      } catch (err) {
-        alert("Pipeline error: " + err.message);
-        showLoading(false);
-      }
-    }
-
-    function showLoading(show, text = "Loading...") {
-      const scrim = document.getElementById('loading-scrim');
-      const textElem = document.getElementById('loading-text');
-      if (text) textElem.textContent = text;
-      scrim.style.display = show ? 'flex' : 'none';
-    }
-
-    function syncPanelLayout() {
-      // Reserve exactly enough vertical space for the telemetry HUD so the left
-      // command dock scrolls instead of overlapping it on short viewports.
-      const hud = document.getElementById('telemetry-hud');
-      if (!hud) return;
-      const reserve = Math.round(hud.getBoundingClientRect().height) + 44;
-      document.documentElement.style.setProperty('--telemetry-reserve', reserve + 'px');
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      syncPanelLayout();
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const time = performance.now();
-      const delta = (time - prevTime) / 1000;
-
-      // Handle Flythrough Movement
-      if (flythroughActive && flyControls.isLocked) {
-        const speed = 200.0;
-        velocity.x -= velocity.x * 10.0 * delta;
-        velocity.z -= velocity.z * 10.0 * delta;
-        velocity.y -= velocity.y * 10.0 * delta;
-
-        direction.z = Number(moveState.forward) - Number(moveState.backward);
-        direction.x = Number(moveState.right) - Number(moveState.left);
-        direction.y = Number(moveState.up) - Number(moveState.down);
-        direction.normalize();
-
-        if (moveState.forward || moveState.backward) velocity.z -= direction.z * speed * delta;
-        if (moveState.left || moveState.right) velocity.x -= direction.x * speed * delta;
-        if (moveState.up || moveState.down) velocity.y += direction.y * speed * delta;
-
-        flyControls.moveRight(-velocity.x);
-        flyControls.moveForward(-velocity.z);
-        camera.position.y += velocity.y;
-      } else if (orbitControls && orbitControls.enabled) {
-        orbitControls.update();
-      }
-
-      if (displacementDirty) { displacementDirty = false; applyElevationDisplacement(); }
-      if (hoverDirty) { hoverDirty = false; updateHoverReadout(); }
-
-      renderer.render(scene, camera);
-
-      // FPS Calculation
-      frameCount++;
-      if (time >= lastFpsTime + 1000) {
-        const fps = Math.round((frameCount * 1000) / (time - lastFpsTime));
-        document.getElementById('fps-stat').textContent = `${fps} FPS`;
-        frameCount = 0;
-        lastFpsTime = time;
-      }
-
-      prevTime = time;
-    }
-
-    init();
-  </script>
+    had=true;pT=t;
+  }
+  return null;
+}
+function onMove(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;
+  mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  hoverDirty=true;
+}
+const fmt=(v,u,dp)=>(v===null||v===undefined||!isFinite(v))?'-':v.toFixed(dp===undefined?1:dp)+' '+u;
+function updateHover(){
+  if(!terrainMesh||!manifest||viewMode==='fps')return;
+  const hit=pick(mouse);
+  const geo=manifest.is_georeferenced;
+  if(!hit){['hAgl','hGround','hSurf','hSlope'].forEach(i=>$(i).textContent='-');return;}
+  const i=hit.py*manifest.width+hit.px;
+  const surf=rawElevations[i];
+  const grnd=groundElevations?groundElevations[i]:null;
+  const agl=grnd!==null?Math.max(0,surf-grnd):null;
+  if(geo){
+    $('hSurf').textContent=fmt(surf,'m');
+    $('hGround').textContent=fmt(grnd,'m');
+    $('hAgl').textContent=fmt(agl,'m');
+  }else{
+    $('hSurf').textContent=fmt(surf*100,'%');
+    $('hGround').textContent=grnd!==null?fmt(grnd*100,'%'):'-';
+    $('hAgl').textContent=agl!==null?fmt(agl*100,'%'):'-';
+  }
+  $('hSlope').textContent=slopeAngles?slopeAngles[i].toFixed(1)+'°':'-';
+  updateLatLon(hit.px,hit.py);
+}
+function updateLatLon(px,py){
+  const b=manifest.bounds_wgs84;
+  if(!b){$('hLat').textContent='n/a (no CRS)';$('hLon').textContent='n/a (no CRS)';return;}
+  const lon=b[0]+(px/(manifest.width-1))*(b[2]-b[0]);
+  const lat=b[3]-(py/(manifest.height-1))*(b[3]-b[1]);
+  $('hLat').textContent=Math.abs(lat).toFixed(5)+'° '+(lat>=0?'N':'S');
+  $('hLon').textContent=Math.abs(lon).toFixed(5)+'° '+(lon>=0?'E':'W');
+}
+function onClick(){
+  if(!rulerOn||!terrainMesh)return;
+  const hit=pick(mouse);if(!hit)return;
+  const i=hit.py*manifest.width+hit.px;
+  rulerPts.push({p:hit.point.clone(),e:rawElevations[i]});
+  const m=new THREE.Mesh(new THREE.SphereGeometry(3.5,14,14),
+    new THREE.MeshBasicMaterial({color:rulerPts.length===1?0x38bdf8:0x34d399}));
+  m.position.copy(hit.point);scene.add(m);rulerObjs.push(m);
+  if(rulerPts.length===2){
+    const g=new THREE.BufferGeometry().setFromPoints([rulerPts[0].p,rulerPts[1].p]);
+    const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0x38bdf8}));
+    scene.add(l);rulerObjs.push(l);
+    const dh=Math.abs(rulerPts[1].e-rulerPts[0].e);
+    const u=manifest.is_georeferenced?dh.toFixed(1)+' m':(dh*100).toFixed(1)+' %';
+    scrim(true,'Δ Height  '+u,'click again to clear');
+    setTimeout(()=>scrim(false),1600);
+  }else if(rulerPts.length>2)clearRuler();
+}
+function clearRuler(){
+  rulerPts=[];
+  rulerObjs.forEach(o=>{scene.remove(o);if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
+  rulerObjs=[];
+}
+function drawProfile(){
+  const cv=$('profile');
+  if(!cv||!manifest||!rawElevations)return;
+  const dpr=Math.min(devicePixelRatio,2);
+  const W=cv.clientWidth||300,H=150;
+  cv.width=W*dpr;cv.height=H*dpr;
+  const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const w=manifest.width,h=manifest.height;
+  const row=Math.min(h-1,Math.max(0,parseInt($('sliceSlider').value,10)));
+  const geo=manifest.is_georeferenced;
+  const gsd=geo&&manifest.gsd_m?manifest.gsd_m:1;
+  const k=geo?1:100;
+  const surf=[],grnd=[];
+  for(let x=0;x<w;x++){
+    surf.push(rawElevations[row*w+x]*k);
+    if(groundElevations)grnd.push(groundElevations[row*w+x]*k);
+  }
+  let lo=Math.min.apply(null,surf),hi=Math.max.apply(null,surf);
+  if(grnd.length){lo=Math.min(lo,Math.min.apply(null,grnd));hi=Math.max(hi,Math.max.apply(null,grnd));}
+  const pad=Math.max(1e-6,(hi-lo)*.14);lo-=pad;hi+=pad;
+  const L=38,R=6,T=8,B=18;
+  const px=i=>L+(i/(w-1))*(W-L-R);
+  const py=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+  g.strokeStyle='rgba(255,255,255,.07)';g.lineWidth=1;
+  g.fillStyle='#61728c';g.font='8px JetBrains Mono, monospace';g.textAlign='right';
+  for(let i=0;i<=3;i++){
+    const v=lo+(hi-lo)*i/3,y=py(v);
+    g.beginPath();g.moveTo(L,y);g.lineTo(W-R,y);g.stroke();
+    g.fillText(v.toFixed(0),L-5,y+3);
+  }
+  if(grnd.length){
+    g.strokeStyle='rgba(147,164,191,.75)';g.lineWidth=1.2;g.setLineDash([4,3]);
+    g.beginPath();grnd.forEach((v,i)=>i?g.lineTo(px(i),py(v)):g.moveTo(px(i),py(v)));g.stroke();
+    g.setLineDash([]);
+    g.beginPath();g.moveTo(px(0),py(surf[0]));
+    surf.forEach((v,i)=>g.lineTo(px(i),py(v)));
+    for(let i=w-1;i>=0;i--)g.lineTo(px(i),py(grnd[i]));
+    g.closePath();g.fillStyle='rgba(56,189,248,.12)';g.fill();
+  }
+  g.strokeStyle='#38bdf8';g.lineWidth=1.6;
+  g.beginPath();surf.forEach((v,i)=>i?g.lineTo(px(i),py(v)):g.moveTo(px(i),py(v)));g.stroke();
+  g.textAlign='center';g.fillStyle='#61728c';
+  g.fillText('0',L,H-6);
+  g.fillText(geo?Math.round((w-1)*gsd)+' m':w+' px',W-R-16,H-6);
+  const mn=Math.min.apply(null,surf),mx=Math.max.apply(null,surf);
+  let mxs=0;
+  for(let i=1;i<w;i++)mxs=Math.max(mxs,Math.abs(surf[i]-surf[i-1])/k/gsd);
+  const uu=geo?'m':'%';
+  $('pPeak').textContent=mx.toFixed(geo?0:1)+uu;
+  $('pMin').textContent=mn.toFixed(geo?0:1)+uu;
+  $('pSpan').textContent=(mx-mn).toFixed(geo?0:1)+uu;
+  $('pSlope').textContent=(Math.atan(mxs)*180/Math.PI).toFixed(0)+'°';
+  $('sliceLbl').textContent='ROW '+row+'/'+(h-1);
+  $('profileNote').textContent=groundElevations
+    ?'Ground estimated from the DSM by morphological opening; shaded band is above-ground structure.'
+    :'No ground estimate available for this scene.';
+}
+function fillPanels(d){
+  const geo=manifest.is_georeferenced;
+  $('thInMeta').textContent=manifest.original_width+'x'+manifest.original_height;
+  $('thElevMeta').textContent=geo?'metric (m)':'relative';
+  $('thScale').textContent=geo&&manifest.gsd_m?(manifest.gsd_m*manifest.width).toFixed(0)+' m across':'no scale (non-georeferenced)';
+  $('sbDatum').textContent=geo?'DATUM: '+manifest.crs:'DATUM: relative rDSM (unitless)';
+  const rows=[];
+  rows.push(['Mode',geo?'Absolute metric DSM':'Relative rDSM']);
+  rows.push(['CRS',geo?manifest.crs:'none (no spatial metadata)']);
+  rows.push(['GSD',geo&&manifest.gsd_m?manifest.gsd_m+' m/px':'-']);
+  rows.push(['Elevation span',geo?manifest.min_elevation_m+' - '+manifest.max_elevation_m+' m':'0.00 - 1.00 (normalised)']);
+  if(manifest.max_agl!==undefined)
+    rows.push(['Max height AGL',geo?manifest.max_agl+' m':(manifest.max_agl*100).toFixed(1)+' %']);
+  const v=manifest.validation;
+  if(v&&geo){
+    if(typeof v.rmse==='number')rows.push(['RMSE vs SRTM',v.rmse.toFixed(2)+' m']);
+    if(typeof v.mae==='number')rows.push(['MAE vs SRTM',v.mae.toFixed(2)+' m']);
+    if(typeof v.r2==='number')rows.push(['Calibration R2',v.r2.toFixed(3)]);
+  }
+  $('sceneRows').innerHTML=rows.map(r=>'<div class="r"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('');
+  const files=[
+    ['relative_dsm.tif','Relative height map (rDSM)',d.assets.relative_dsm_tif],
+    ['metric_dsm.tif','Georeferenced DSM (metres)',d.assets.metric_dsm_tif],
+    ['heightmap.png','16-bit heightmap raster',d.assets.heightmap],
+    ['3d_model.glb','Textured 3D mesh','#glb']];
+  $('outputs').innerHTML=files.map(f=>
+    '<div class="file '+(f[2]?'':'off')+'"><div class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>'+
+    '<div><div class="nm">'+f[0]+'</div><div class="d">'+(f[2]?f[1]:f[1]+' - needs GeoTIFF input')+'</div></div>'+
+    '<button class="dl" data-href="'+(f[2]||'')+'" data-name="'+f[0]+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button></div>').join('');
+  $('outputs').querySelectorAll('.dl').forEach(b=>b.onclick=()=>{
+    const href=b.dataset.href;
+    if(href==='#glb')return exportGLB();
+    if(href){const a=document.createElement('a');a.href=href;a.download=b.dataset.name;a.click();}
+  });
+  loadBenchmark();
+}
+async function loadBenchmark(){
+  try{
+    const r=await fetch('/api/benchmark');if(!r.ok)return;
+    const b=await r.json();if(!b.overall)return;
+    $('bmRmse').textContent=b.overall.rmse.toFixed(2)+' m';
+    $('bmMae').textContent=b.overall.mae.toFixed(2)+' m';
+    $('bmCorr').textContent=b.overall.pearson_r.toFixed(3);
+    $('bmSub').textContent=b.n_tiles+' tiles · '+b.cities.join('/')+' · '+b.ground_truth;
+    $('bmProtocol').textContent='Protocol: '+b.protocol+'. Ground truth is withheld from calibration.';
+    $('bmCities').innerHTML=(b.per_city||[]).map(c=>
+      '<div class="r"><span>'+c.city+' ('+c.n_tiles+' tiles)</span><b>'+c.rmse.toFixed(2)+' m</b></div>').join('');
+    $('bmClasses').innerHTML=(b.per_class||[]).map(c=>
+      '<div class="r"><span>'+c.name+'</span><b>'+c.rmse.toFixed(2)+' m</b></div>').join('');
+    $('bmBox').style.display='flex';
+  }catch(e){}
+}
+function exportGLB(){
+  if(!terrainMesh)return;
+  scrim(true,'Exporting 3D model...','building glTF binary');
+  const grp=new THREE.Group();
+  grp.add(terrainMesh.clone());
+  if(skirtMesh)grp.add(skirtMesh.clone());
+  new GLTFExporter().parse(grp,out=>{
+    const blob=new Blob([out],{type:'model/gltf-binary'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=(jobId||'terrain')+'.glb';a.click();
+    URL.revokeObjectURL(a.href);scrim(false);
+  },err=>{console.error(err);scrim(true,'GLB export failed',String(err));setTimeout(()=>scrim(false),1800);},
+  {binary:true});
+}
+function setLayer(id){
+  layer=id;
+  document.querySelectorAll('[data-layer]').forEach(b=>b.classList.toggle('on',b.dataset.layer===id));
+  if(!terrainMaterial)return;
+  terrainMaterial.wireframe=(id==='wire');
+  if(id==='rgb')terrainMaterial.map=texRGB;
+  else if(id==='slope')terrainMaterial.map=texSlope;
+  else if(id==='agl')terrainMaterial.map=texAGL||texRGB;
+  else if(id==='error')terrainMaterial.map=texError||texRGB;
+  terrainMaterial.needsUpdate=true;
+}
+function setView(v){
+  viewMode=v;
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  $('sbMode').textContent=v.toUpperCase();
+  $('keys').style.display=v==='fps'?'block':'none';
+  $('reticle').style.display=v==='fps'?'block':'none';
+  if(v==='fps'){
+    orbit.enabled=false;
+    const y=(sampleY(0,0)||0)+60;
+    camera.position.set(0,y,worldSize.h*.42);
+    fly.lock();
+  }else{
+    if(fly.isLocked)fly.unlock();
+    orbit.enabled=true;
+    if(v==='aerial'){
+      const d=Math.max(worldSize.w,worldSize.h)*1.15;
+      camera.position.set(0,d*1.25,0.001);
+      orbit.target.set(0,0,0);orbit.update();
+    }else resetCamera();
+  }
+}
+const STEPS=['pre','depth','scale','mesh'];
+function stepState(k,s){
+  const el=document.querySelector('.step[data-k="'+k+'"]');
+  if(!el)return;
+  el.classList.remove('run','ok','err');
+  if(s)el.classList.add(s);
+  el.querySelector('.mk').textContent=s==='ok'?'✓':(s==='err'?'!':'');
+}
+async function upload(file){
+  STEPS.forEach(k=>stepState(k,null));
+  $('fileChip').style.display='flex';
+  $('fileName').textContent=file.name;
+  $('fileMeta').textContent=(file.size/1048576).toFixed(1)+' MB · '+file.name.split('.').pop().toUpperCase();
+  scrim(true,'Processing image...','monocular depth + calibration');
+  stepState('pre','run');
+  const fd=new FormData();fd.append('file',file);
+  let stage=0;
+  const tick=setInterval(()=>{
+    if(stage<STEPS.length-1){stepState(STEPS[stage],'ok');stage++;stepState(STEPS[stage],'run');}
+  },900);
+  try{
+    const r=await fetch('/api/process',{method:'POST',body:fd});
+    clearInterval(tick);
+    if(!r.ok){let e={};try{e=await r.json();}catch(x){}throw new Error(e.detail||('HTTP '+r.status));}
+    const d=await r.json();
+    STEPS.forEach(k=>stepState(k,'ok'));
+    await loadJob(d.job_id);
+    refreshPresets();
+  }catch(e){
+    clearInterval(tick);
+    stepState(STEPS[stage],'err');
+    scrim(true,'Processing failed',e.message);
+    setTimeout(()=>scrim(false),3200);
+  }
+}
+function refreshPresets(){
+  fetch('/api/jobs').then(r=>r.ok?r.json():null).then(list=>{
+    if(!list||!list.jobs||!list.jobs.length){
+      $('presets').innerHTML='<div class="hint" style="padding:2px">Upload an image to begin.</div>';return;}
+    $('presets').innerHTML=list.jobs.slice(0,3).map(j=>
+      '<button class="preset" data-job="'+j.job_id+'" title="'+j.size+'">'+j.label+'</button>').join('');
+    $('presets').querySelectorAll('.preset').forEach(b=>b.onclick=()=>{
+      $('presets').querySelectorAll('.preset').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      STEPS.forEach(k=>stepState(k,'ok'));
+      loadJob(b.dataset.job);
+    });
+  }).catch(()=>{});
+}
+function wireUI(){
+  $('dropzone').onclick=()=>$('fileInput').click();
+  $('fileInput').onchange=e=>{if(e.target.files[0])upload(e.target.files[0]);};
+  ['dragenter','dragover'].forEach(t=>$('dropzone').addEventListener(t,e=>{
+    e.preventDefault();$('dropzone').classList.add('hot');}));
+  ['dragleave','drop'].forEach(t=>$('dropzone').addEventListener(t,e=>{
+    e.preventDefault();$('dropzone').classList.remove('hot');}));
+  $('dropzone').addEventListener('drop',e=>{if(e.dataTransfer.files[0])upload(e.dataTransfer.files[0]);});
+  document.querySelectorAll('[data-layer]').forEach(b=>b.onclick=()=>setLayer(b.dataset.layer));
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+  $('tRuler').onclick=()=>{rulerOn=!rulerOn;$('tRuler').classList.toggle('on',rulerOn);if(!rulerOn)clearRuler();};
+  $('tSun').onclick=()=>setSunHour(sunHour>=18?6:sunHour+3);
+  $('btnFly').onclick=()=>setView('fps');
+  $('btnReset').onclick=()=>setView('orbit');
+  $('sliceSlider').oninput=drawProfile;
+  addEventListener('keydown',e=>{
+    const m={KeyW:'f',KeyS:'b',KeyA:'l',KeyD:'r',Space:'u',KeyC:'d'}[e.code];
+    if(m){move[m]=1;if(e.code==='Space')e.preventDefault();}
+  });
+  addEventListener('keyup',e=>{
+    const m={KeyW:'f',KeyS:'b',KeyA:'l',KeyD:'r',Space:'u',KeyC:'d'}[e.code];
+    if(m)move[m]=0;
+  });
+  refreshPresets();
+}
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now(),dt=Math.min(.1,(now-prevT)/1000);
+  if(viewMode==='fps'&&fly.isLocked){
+    const sp=220;
+    vel.x-=vel.x*10*dt;vel.z-=vel.z*10*dt;vel.y-=vel.y*10*dt;
+    dir.z=move.f-move.b;dir.x=move.r-move.l;dir.y=move.u-move.d;
+    dir.normalize();
+    if(move.f||move.b)vel.z-=dir.z*sp*dt;
+    if(move.l||move.r)vel.x-=dir.x*sp*dt;
+    if(move.u||move.d)vel.y+=dir.y*sp*dt;
+    fly.moveRight(-vel.x);fly.moveForward(-vel.z);
+    camera.position.y+=vel.y;
+    const g=sampleY(camera.position.x,camera.position.z);
+    if(g!==null&&camera.position.y<g+4)camera.position.y=g+4;
+  }else if(orbit.enabled)orbit.update();
+  if(hoverDirty){hoverDirty=false;updateHover();}
+  if(manifest){
+    $('hAlt').textContent=manifest.is_georeferenced
+      ?(baseDatum+camera.position.y/Math.max(1e-6,heightScale)).toFixed(0)+' m'
+      :camera.position.y.toFixed(0)+' u';
+  }
+  const yaw=Math.atan2(camera.position.x-orbit.target.x,camera.position.z-orbit.target.z);
+  $('compassRose').setAttribute('transform','rotate('+(yaw*180/Math.PI).toFixed(1)+' 31 31)');
+  renderer.render(scene,camera);
+  frames++;
+  if(now>=fpsT+1000){
+    $('sbFps').textContent=Math.round(frames*1000/(now-fpsT))+' FPS';
+    frames=0;fpsT=now;
+  }
+  prevT=now;
+}
+init();
+</script>
 </body>
 </html>

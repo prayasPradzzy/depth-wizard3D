@@ -168,6 +168,65 @@ def compute_sky_view_ao(
     return np.clip(openness, 0.0, 1.0).astype(np.float32)
 
 
+def estimate_ground_surface(elevation: np.ndarray, scale_px: int = 48) -> np.ndarray:
+    """
+    Estimate a bare-earth surface (DTM) from a Digital Surface Model.
+
+    WHY THIS EXISTS:
+    The pipeline produces a DSM - the top of whatever is there, roofs and canopy
+    included. The quantity an analyst actually wants is height *above local ground*:
+    how tall is that building, not what is its roof's elevation above sea level.
+    Getting there needs a bare-earth reference.
+
+    SRTM supplies one for georeferenced scenes, but it is 30 m and unavailable for
+    plain PNG/JPG input. So we also derive one from the DSM itself using greyscale
+    morphological opening: an erosion followed by a dilation with a structuring
+    element wider than any building footprint removes everything that "sticks up"
+    while preserving broad terrain relief. This is the classic morphological-filter
+    approach to DTM extraction from surface models.
+
+    Limitation, stated plainly: structures wider than `scale_px` survive the opening
+    and will be read as terrain. It is an estimate, and the UI labels it as one.
+
+    Args:
+        elevation: 2D DSM array.
+        scale_px: Structuring-element size in pixels. Must exceed the largest
+                  building footprint you expect to remove.
+
+    Returns:
+        float32 bare-earth estimate, same shape, always <= the input DSM.
+    """
+    import scipy.ndimage as ndi
+
+    arr = np.asarray(elevation, dtype=np.float32)
+    finite = np.isfinite(arr)
+    if not np.any(finite):
+        return arr.copy()
+    filled = np.where(finite, arr, float(np.nanmin(arr[finite])))
+
+    k = max(3, int(scale_px))
+    ground = ndi.grey_opening(filled, size=(k, k), mode="nearest")
+    # Smooth the terraces the flat structuring element leaves behind.
+    ground = ndi.uniform_filter(ground, size=max(3, k // 2), mode="nearest")
+    # Ground can never sit above the measured surface.
+    return np.minimum(ground, filled).astype(np.float32)
+
+
+def _colormap_png(arr: np.ndarray, path, cmap: str = "turbo") -> None:
+    """Render a 2D array to an 8-bit RGB PNG using a matplotlib colormap."""
+    import matplotlib as mpl
+
+    a = np.asarray(arr, dtype=np.float32)
+    finite = np.isfinite(a)
+    if not np.any(finite):
+        a = np.zeros_like(a)
+    else:
+        lo, hi = np.percentile(a[finite], [2.0, 98.0])
+        a = np.clip((a - lo) / max(1e-6, hi - lo), 0.0, 1.0)
+    fn = mpl.colormaps[cmap]
+    Image.fromarray((fn(a)[:, :, :3] * 255).round().astype(np.uint8), mode="RGB").save(path)
+
+
 def export_for_web(
     elevation_arr: np.ndarray,
     rgb_input: Union[str, Path, Image.Image, np.ndarray],
@@ -298,6 +357,14 @@ def export_for_web(
     ao_img = 0.28 + 0.72 * ao_img                  # keep a floor so nothing goes pure black
     Image.fromarray((ao_img * 255.0).round().astype(np.uint8), mode="L").save(out_path / "ao.png")
 
+    # 6c. Bare-earth estimate + preview rasters for the dashboard panels.
+    ground = estimate_ground_surface(downsampled_elev, scale_px=max(16, min(target_w, target_h) // 10))
+    ground.astype(np.float32).tofile(out_path / "ground.bin")
+    _colormap_png(downsampled_elev, out_path / "depth_turbo.png", "turbo")
+    _colormap_png(downsampled_elev, out_path / "elevation_metric.png", "terrain")
+
+    agl = np.clip(downsampled_elev - ground, 0.0, None)
+
     # 7. Compute Ground Sample Distance at Resampled Resolution
     effective_gsd = None
     if gsd_m is not None:
@@ -323,6 +390,11 @@ def export_for_web(
         "heightmap_sharp_bin_file": "heightmap_sharp.bin",
         "texture_file": "texture.png",
         "ao_file": "ao.png",
+        "ground_bin_file": "ground.bin",
+        "depth_turbo_file": "depth_turbo.png",
+        "elevation_metric_file": "elevation_metric.png",
+        "max_agl": round(float(np.nanmax(agl)) if np.any(np.isfinite(agl)) else 0.0, 2),
+        "mean_agl": round(float(np.nanmean(agl)) if np.any(np.isfinite(agl)) else 0.0, 2),
     }
 
     manifest_path = out_path / "manifest.json"

@@ -244,6 +244,24 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 except Exception as e:
                     print(f"[API WARNING] SRTM alignment/calibration skipped: {e}")
 
+            # Export the DSM as a real GeoTIFF so the download panel serves an actual
+            # geospatial product, not a screenshot. CRS + affine transform preserved.
+            try:
+                with rasterio.open(
+                    job_dir / "metric_dsm.tif", "w", driver="GTiff",
+                    height=height, width=width, count=1, dtype=rasterio.float32,
+                    crs=crs, transform=transform, nodata=-9999.0, compress="deflate",
+                ) as dst:
+                    dst.write(pred_dsm.astype(np.float32), 1)
+                with rasterio.open(
+                    job_dir / "relative_dsm.tif", "w", driver="GTiff",
+                    height=height, width=width, count=1, dtype=rasterio.float32,
+                    crs=crs, transform=transform, nodata=-9999.0, compress="deflate",
+                ) as dst:
+                    dst.write(rel_depth.astype(np.float32), 1)
+            except Exception as e:
+                print(f"[API WARNING] GeoTIFF export failed: {e}", file=sys.stderr)
+
             gsd = to_metric_resolution(transform, crs)
             web_assets = export_for_web(
                 elevation_arr=pred_dsm,
@@ -255,15 +273,23 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 gsd_m=gsd,
             )
 
-            # Append validation metrics to manifest if available
+            manifest_file = job_dir / "manifest.json"
+            with open(manifest_file, "r", encoding="utf-8") as f:
+                m = json.load(f)
             if val_metrics:
-                manifest_file = job_dir / "manifest.json"
-                with open(manifest_file, "r", encoding="utf-8") as f:
-                    m = json.load(f)
                 m["validation"] = val_metrics
                 m["error_map_file"] = "error_map.png"
-                with open(manifest_file, "w", encoding="utf-8") as f:
-                    json.dump(m, f, indent=2)
+            # WGS84 extent lets the viewer convert a cursor/camera position into
+            # real latitude/longitude instead of unitless scene coordinates.
+            try:
+                from rasterio.warp import transform_bounds as _tb
+                w_, s_, e_, n_ = _tb(crs, "EPSG:4326", *bounds)
+                m["bounds_wgs84"] = [round(w_, 6), round(s_, 6), round(e_, 6), round(n_, 6)]
+            except Exception:
+                pass
+            m["has_geotiff"] = (job_dir / "metric_dsm.tif").exists()
+            with open(manifest_file, "w", encoding="utf-8") as f:
+                json.dump(m, f, indent=2)
 
         else:
             print(f"[API] Standard RGB image detected. Executing Stage 1 Relative Pipeline...")
@@ -337,6 +363,9 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
     resolved_id = job_dir.name
     has_error_map = (job_dir / "error_map.png").exists()
     has_ao = (job_dir / "ao.png").exists()
+
+    def _opt(name: str):
+        return f"/api/assets/{job_dir.name}/{name}" if (job_dir / name).exists() else None
     has_sharp_bin = (job_dir / "heightmap_sharp.bin").exists()
 
     return {
@@ -348,9 +377,50 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
             "heightmap_sharp_bin": f"/api/assets/{resolved_id}/heightmap_sharp.bin" if has_sharp_bin else f"/api/assets/{resolved_id}/heightmap.bin",
             "texture": f"/api/assets/{resolved_id}/texture.png",
             "ao": f"/api/assets/{resolved_id}/ao.png" if has_ao else None,
+            "ground_bin": _opt("ground.bin"),
+            "depth_turbo": _opt("depth_turbo.png"),
+            "elevation_metric": _opt("elevation_metric.png"),
+            "metric_dsm_tif": _opt("metric_dsm.tif"),
+            "relative_dsm_tif": _opt("relative_dsm.tif"),
             "error_map": f"/api/assets/{resolved_id}/error_map.png" if has_error_map else None,
         },
     }
+
+
+@app.get("/api/jobs")
+async def list_jobs() -> Dict[str, Any]:
+    """
+    Recent processed scenes, newest first.
+
+    Only jobs that actually completed are listed - the viewer's "sample scenes"
+    row is populated from this, so it can never advertise a scene the pipeline
+    has not really produced.
+    """
+    out = []
+    for p in sorted(JOBS_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+        mf = p / "manifest.json"
+        if not (p.is_dir() and mf.exists()):
+            continue
+        try:
+            with open(mf, "r", encoding="utf-8") as f:
+                m = json.load(f)
+        except Exception:
+            continue
+        src = next((c.name for c in p.iterdir()
+                    if c.suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
+                    and not c.name.startswith(("heightmap", "texture", "ao",
+                                               "error_map", "depth_turbo",
+                                               "elevation_metric"))), None)
+        label = Path(src).stem if src else p.name.replace("job_", "")
+        out.append({
+            "job_id": p.name,
+            "label": label[:18],
+            "georeferenced": bool(m.get("is_georeferenced")),
+            "size": f'{m.get("width")}x{m.get("height")}',
+        })
+        if len(out) >= 12:
+            break
+    return {"jobs": out}
 
 
 @app.get("/api/benchmark")

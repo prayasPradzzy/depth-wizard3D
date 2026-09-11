@@ -7,3 +7,10 @@
 [18:28:48] train manifest: 150 tiles (need 150)
 [18:28:48] split: 135 train / 15 val
 [18:28:48] TRAIN: C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\.venv-train\Scripts\python.exe C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\tools\train_gamus.py --manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_train_split.json --val-manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_val_split.json --epochs 30 --crop 448 --batch 2 --out C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\checkpoints\agl_vits.pt
+[18:35:37] training exited 1 after 6.8 min
+[18:35:37] training did not produce a checkpoint - demo build is untouched, all good.
+[18:37:03] ============================================================
+[18:37:03] OVERNIGHT RUN START
+[18:37:03] train manifest: 200 tiles (need 200)
+[18:37:03] split: 180 train / 20 val
+[18:37:03] TRAIN: C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\.venv-train\Scripts\python.exe C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\tools\train_gamus.py --manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_train_split.json --val-manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_val_split.json --epochs 150 --crop 448 --batch 4 --out C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\checkpoints\agl_vits.pt
