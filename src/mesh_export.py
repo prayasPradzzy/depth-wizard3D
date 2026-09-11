@@ -98,6 +98,76 @@ def regularize_architectural_elevations(
     return np.clip(arr, d_min, d_max).astype(np.float32)
 
 
+def compute_sky_view_ao(
+    elevation: np.ndarray,
+    relief_ratio: float,
+    n_dirs: int = 12,
+    n_steps: int = 24,
+) -> np.ndarray:
+    """
+    Bake an ambient-occlusion (sky-view-factor) map from the heightfield.
+
+    WHY THIS EXISTS:
+    A MeshStandardMaterial lit by one directional light gives every surface facing
+    the sun the same brightness, so street canyons, courtyards and the ground at the
+    base of a tower all read as equally lit. The eye uses exactly that contact
+    darkening to judge relative height, so without it a city terrain looks flat and
+    "pasted on" no matter how good the geometry is.
+
+    Screen-space AO would cost frame time on every render and is fiddly to tune.
+    Because our surface is a regular heightfield we can instead compute the true
+    sky-view factor once, offline, by scanning the horizon: for each of `n_dirs`
+    compass directions we march outward and track the steepest elevation angle that
+    blocks the sky. Openness is then the mean cosine of those horizon angles.
+
+    Args:
+        elevation: 2D elevation array (any units).
+        relief_ratio: Vertical units per horizontal cell, so the horizon angles are
+                      computed in the same proportions the 3D viewer displays.
+        n_dirs: Compass directions sampled.
+        n_steps: Ray-march steps per direction.
+
+    Returns:
+        float32 array in [0, 1]; 1.0 = fully open sky, lower = more occluded.
+    """
+    arr = np.asarray(elevation, dtype=np.float32)
+    arr = np.nan_to_num(arr, nan=float(np.nanmin(arr)) if np.any(np.isfinite(arr)) else 0.0)
+
+    span = float(arr.max() - arr.min())
+    if span < 1e-8 or relief_ratio <= 0:
+        return np.ones_like(arr, dtype=np.float32)
+
+    # Express height in units of one horizontal cell so tan(angle) = dh / distance.
+    h = (arr - arr.min()) / span * (span * relief_ratio)
+
+    openness = np.zeros_like(h, dtype=np.float32)
+    for k in range(n_dirs):
+        theta = 2.0 * np.pi * k / n_dirs
+        dx, dy = np.cos(theta), np.sin(theta)
+        max_tan = np.zeros_like(h, dtype=np.float32)
+        for s in range(1, n_steps + 1):
+            sx, sy = int(round(dx * s)), int(round(dy * s))
+            if sx == 0 and sy == 0:
+                continue
+            shifted = np.roll(np.roll(h, -sy, axis=0), -sx, axis=1)
+            # Edge wrap would create phantom horizons; clamp those cells to self.
+            if sy > 0:
+                shifted[-sy:, :] = h[-sy:, :]
+            elif sy < 0:
+                shifted[:-sy, :] = h[:-sy, :]
+            if sx > 0:
+                shifted[:, -sx:] = h[:, -sx:]
+            elif sx < 0:
+                shifted[:, :-sx] = h[:, :-sx]
+            dist = float(np.hypot(sx, sy))
+            np.maximum(max_tan, (shifted - h) / dist, out=max_tan)
+        # cos(horizon angle) = 1 / sqrt(1 + tan^2)
+        openness += 1.0 / np.sqrt(1.0 + np.maximum(max_tan, 0.0) ** 2)
+
+    openness /= float(n_dirs)
+    return np.clip(openness, 0.0, 1.0).astype(np.float32)
+
+
 def export_for_web(
     elevation_arr: np.ndarray,
     rgb_input: Union[str, Path, Image.Image, np.ndarray],
@@ -217,6 +287,17 @@ def export_for_web(
     bin_sharp_path = out_path / "heightmap_sharp.bin"
     sharp_elev.astype(np.float32).tofile(bin_sharp_path)
 
+    # 6b. Bake sky-view ambient occlusion for the viewer's aoMap.
+    if gsd_m is not None and gsd_m > 0:
+        relief_ratio = 1.0 / float(gsd_m)          # metres of height per metre of ground
+    else:
+        relief_ratio = 60.0                        # matches the viewer's non-georef heightScale
+    ao = compute_sky_view_ao(sharp_elev, relief_ratio=relief_ratio)
+    # Gamma-shape the falloff so the darkening is visible but not crushed.
+    ao_img = np.clip(ao, 0.0, 1.0) ** 1.6
+    ao_img = 0.28 + 0.72 * ao_img                  # keep a floor so nothing goes pure black
+    Image.fromarray((ao_img * 255.0).round().astype(np.uint8), mode="L").save(out_path / "ao.png")
+
     # 7. Compute Ground Sample Distance at Resampled Resolution
     effective_gsd = None
     if gsd_m is not None:
@@ -241,6 +322,7 @@ def export_for_web(
         "heightmap_sharp_file": "heightmap_sharp.png",
         "heightmap_sharp_bin_file": "heightmap_sharp.bin",
         "texture_file": "texture.png",
+        "ao_file": "ao.png",
     }
 
     manifest_path = out_path / "manifest.json"

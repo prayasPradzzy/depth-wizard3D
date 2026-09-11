@@ -52,18 +52,33 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 # Pipeline tuning via environment (see .env.example).
+MESH_DIM = int(os.environ.get("DW_MESH_DIM", "1024"))   # web mesh grid + texture edge
 MODEL_SIZE = os.environ.get("DW_MODEL_SIZE", "small").strip().lower()
 TILED_MODE = os.environ.get("DW_TILED", "auto").strip().lower()          # auto | on | off
 ENHANCE_SHADOWS = _env_flag("DW_ENHANCE_SHADOWS", False)
 FLATTEN_WATER = _env_flag("DW_FLATTEN_WATER", False)
+PREWARM = _env_flag("DW_PREWARM", True)   # load model at startup for fast first upload
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Create the initial demo terrain job on startup (never blocks import, never fatal)."""
+    """Create the initial demo terrain job and pre-warm the model on startup."""
     try:
         create_initial_demo_job()
     except Exception as e:  # pragma: no cover - defensive
         print(f"[WARNING] Could not create initial demo job: {e}", file=sys.stderr)
+
+    if PREWARM:
+        # Load model weights + run one tiny inference now, so the first real upload
+        # does not pay ~10 s of lazy initialisation. Matters for a live demo.
+        try:
+            t0 = time.perf_counter()
+            get_estimator().predict(
+                np.zeros((64, 64, 3), dtype=np.uint8), robust=True, tiled=False
+            )
+            print(f"[INFO] Model pre-warmed in {time.perf_counter() - t0:.1f}s "
+                  f"(size={MODEL_SIZE}, tiled={TILED_MODE})")
+        except Exception as e:
+            print(f"[WARNING] Pre-warm failed (first upload will be slower): {e}", file=sys.stderr)
     yield
 
 
@@ -234,7 +249,7 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 elevation_arr=pred_dsm,
                 rgb_input=rgb_uint8,
                 out_dir=job_dir,
-                max_dim=512,
+                max_dim=MESH_DIM,
                 is_georeferenced=has_calibrated,
                 crs_str=crs.to_string(),
                 gsd_m=gsd,
@@ -274,7 +289,7 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 elevation_arr=rel_depth,
                 rgb_input=pil_img,
                 out_dir=job_dir,
-                max_dim=512,
+                max_dim=MESH_DIM,
                 is_georeferenced=False,
             )
 
@@ -321,6 +336,7 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
 
     resolved_id = job_dir.name
     has_error_map = (job_dir / "error_map.png").exists()
+    has_ao = (job_dir / "ao.png").exists()
     has_sharp_bin = (job_dir / "heightmap_sharp.bin").exists()
 
     return {
@@ -331,9 +347,20 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
             "heightmap_bin": f"/api/assets/{resolved_id}/heightmap.bin",
             "heightmap_sharp_bin": f"/api/assets/{resolved_id}/heightmap_sharp.bin" if has_sharp_bin else f"/api/assets/{resolved_id}/heightmap.bin",
             "texture": f"/api/assets/{resolved_id}/texture.png",
+            "ao": f"/api/assets/{resolved_id}/ao.png" if has_ao else None,
             "error_map": f"/api/assets/{resolved_id}/error_map.png" if has_error_map else None,
         },
     }
+
+
+@app.get("/api/benchmark")
+async def get_benchmark() -> Dict[str, Any]:
+    """Independent LiDAR benchmark results, produced by tools/eval_gamus.py."""
+    bf = PROJECT_ROOT / "data" / "benchmark.json"
+    if not bf.exists():
+        raise HTTPException(status_code=404, detail="No benchmark results available.")
+    with open(bf, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 @app.get("/api/assets/{job_id}/{filename}")
@@ -382,7 +409,7 @@ def create_initial_demo_job():
             estimator = get_estimator()
             res = estimator.predict(pil_img, robust=True)
             elev_arr = res.normalized_depth
-        export_for_web(elev_arr, pil_img, demo_job_dir, max_dim=512, is_georeferenced=False)
+        export_for_web(elev_arr, pil_img, demo_job_dir, max_dim=MESH_DIM, is_georeferenced=False)
     else:
         # Fallback synthetic
         from tests.test_stage1_synthetic import create_synthetic_terrain

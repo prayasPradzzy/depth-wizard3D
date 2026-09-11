@@ -870,6 +870,18 @@
       </div>
     </div>
 
+    <div id="benchmark-box" style="display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,.1); padding-top:10px;">
+      <div class="section-title" style="margin:0; color: var(--accent-amber);">Independent LiDAR Benchmark</div>
+      <div id="bm-sub" style="font-size:10px; color:var(--text-dim); font-family:var(--font-mono);"></div>
+      <div class="val-metric-grid">
+        <div class="metric-card"><span class="metric-name">RMSE</span><span id="bm-rmse" class="metric-val" style="color:var(--accent-amber)">—</span></div>
+        <div class="metric-card"><span class="metric-name">MAE</span><span id="bm-mae" class="metric-val" style="color:var(--accent-amber)">—</span></div>
+      </div>
+      <div class="metric-card"><span class="metric-name">Pearson r</span><span id="bm-corr" class="metric-val" style="color:var(--accent-amber)">—</span></div>
+      <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;">RMSE by land cover</div>
+      <div id="bm-classes" style="font-size:11px;"></div>
+    </div>
+
     <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
       <strong>Method:</strong> Stratified RANSAC anchored to spaceborne SRTM 30m GL1 reference datum.
     </div>
@@ -915,7 +927,11 @@
     let terrainMesh = null;
     let terrainGeometry = null;
     let terrainMaterial = null;
-    let directionalLight, ambientLight;
+    let directionalLight, ambientLight, hemiLight, rimLight;
+    let skyDome = null;
+    let skirtMesh = null;
+    let skirtGeometry = null;
+    let terrainWorldSize = { w: 500, h: 500 };
     
     // Height data arrays
     let rawElevations = null;
@@ -927,6 +943,7 @@
     let textureRGB = null;
     let textureSlope = null;
     let textureError = null;
+    let textureAO = null;
     let currentShaderMode = 'rgb'; // 'rgb', 'slope', 'error', 'wire'
 
     // Parameters
@@ -950,6 +967,8 @@
     // Raycasting
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2(-999, -999);
+    let hoverDirty = false;
+    let displacementDirty = false;
 
     // FPS
     let frameCount = 0;
@@ -958,13 +977,13 @@
     function init() {
       const container = document.getElementById('viewport-container');
 
-      // 1. Scene
+      // 1. Scene + atmospheric sky dome
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x070b12);
-      scene.fog = new THREE.FogExp2(0x070b12, 0.0012);
+      scene.fog = new THREE.FogExp2(0x0d1524, 0.00065);
+      buildSkyDome();
 
       // 2. Camera
-      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 6000);
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 8000);
       camera.position.set(0, 320, 480);
 
       // 3. WebGL2 Renderer
@@ -974,26 +993,38 @@
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
+      renderer.toneMappingExposure = 1.05;
       container.appendChild(renderer.domElement);
 
-      // 4. Lighting
-      ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      // 4. Lighting: hemisphere bounce + key sun + cool rim fill
+      // Hemisphere light supplies sky/ground colour bounce, which is what stops
+      // shadowed facades from collapsing to flat black the way pure ambient does.
+      hemiLight = new THREE.HemisphereLight(0x9ec9ff, 0x2b2418, 0.85);
+      scene.add(hemiLight);
+
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
       scene.add(ambientLight);
 
-      directionalLight = new THREE.DirectionalLight(0xfffbf0, 1.8);
+      directionalLight = new THREE.DirectionalLight(0xfff2d8, 2.6);
       directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.shadow.mapSize.width = 4096;
+      directionalLight.shadow.mapSize.height = 4096;
       directionalLight.shadow.camera.near = 10;
-      directionalLight.shadow.camera.far = 2500;
-      const d = 550;
+      directionalLight.shadow.camera.far = 2600;
+      const d = 420;
       directionalLight.shadow.camera.left = -d;
       directionalLight.shadow.camera.right = d;
       directionalLight.shadow.camera.top = d;
       directionalLight.shadow.camera.bottom = -d;
-      directionalLight.shadow.bias = -0.0003;
+      directionalLight.shadow.bias = -0.0004;
+      directionalLight.shadow.normalBias = 0.6;
+      directionalLight.shadow.radius = 1.6;
       scene.add(directionalLight);
+
+      // Cool back-rim light separates terrain silhouette from the sky.
+      rimLight = new THREE.DirectionalLight(0x6fa8ff, 0.55);
+      rimLight.position.set(-400, 220, -400);
+      scene.add(rimLight);
 
       updateSunPosition(180, 65);
 
@@ -1024,6 +1055,114 @@
 
       // 8. Animation Loop
       animate();
+    }
+
+    function buildSkyDome() {
+      // Vertical-gradient sky dome. A flat black clear-colour reads as "unfinished
+      // WebGL canvas"; a graded horizon gives the terrain something to sit against
+      // and makes the silhouette legible from every camera angle.
+      const geo = new THREE.SphereGeometry(4000, 32, 16);
+      const mat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          topColor:     { value: new THREE.Color(0x050a16) },
+          midColor:     { value: new THREE.Color(0x14263f) },
+          horizonColor: { value: new THREE.Color(0x2e4a63) },
+        },
+        vertexShader: `
+          varying vec3 vWorld;
+          void main() {
+            vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: `
+          uniform vec3 topColor, midColor, horizonColor;
+          varying vec3 vWorld;
+          void main() {
+            float hgt = normalize(vWorld).y;
+            vec3 col = mix(horizonColor, midColor, smoothstep(-0.05, 0.35, hgt));
+            col = mix(col, topColor, smoothstep(0.3, 0.9, hgt));
+            // subtle haze band right at the horizon line
+            col += vec3(0.05, 0.06, 0.07) * (1.0 - smoothstep(0.0, 0.16, abs(hgt)));
+            gl_FragColor = vec4(col, 1.0);
+          }`,
+      });
+      skyDome = new THREE.Mesh(geo, mat);
+      skyDome.frustumCulled = false;
+      scene.add(skyDome);
+    }
+
+    function rebuildTerrainSkirt() {
+      // Extrude the terrain boundary downward into solid side walls plus a base cap.
+      // Without this the mesh reads as a paper-thin sheet floating in space; with it
+      // the scene reads as a physical block of extracted terrain.
+      if (!terrainGeometry || !currentManifest) return;
+
+      const w = currentManifest.width;
+      const h = currentManifest.height;
+      const pos = terrainGeometry.attributes.position;
+
+      // Walk the boundary ring in order.
+      const ring = [];
+      for (let x = 0; x < w; x++) ring.push(x);                       // top edge
+      for (let y = 1; y < h; y++) ring.push(y * w + (w - 1));          // right edge
+      for (let x = w - 2; x >= 0; x--) ring.push((h - 1) * w + x);     // bottom edge
+      for (let y = h - 2; y >= 1; y--) ring.push(y * w);               // left edge
+
+      let minY = Infinity;
+      for (let i = 0; i < ring.length; i++) minY = Math.min(minY, pos.getY(ring[i]));
+      const baseY = minY - Math.max(18, terrainWorldSize.w * 0.075);
+
+      const n = ring.length;
+      const verts = new Float32Array(n * 2 * 3);
+      const cols = new Float32Array(n * 2 * 3);
+      // Strata colouring: warm rock at the cut face, darkening with depth.
+      const top = new THREE.Color(0x6b6255);
+      const bot = new THREE.Color(0x141a24);
+
+      for (let i = 0; i < n; i++) {
+        const vi = ring[i];
+        const x = pos.getX(vi), y = pos.getY(vi), z = pos.getZ(vi);
+        verts[i * 6 + 0] = x; verts[i * 6 + 1] = y;     verts[i * 6 + 2] = z;
+        verts[i * 6 + 3] = x; verts[i * 6 + 4] = baseY; verts[i * 6 + 5] = z;
+        top.toArray(cols, i * 6);
+        bot.toArray(cols, i * 6 + 3);
+      }
+
+      const idx = [];
+      for (let i = 0; i < n; i++) {
+        const a = i * 2, b = a + 1;
+        const j = (i + 1) % n;
+        const c = j * 2, dd = c + 1;
+        idx.push(a, b, c, b, dd, c);
+      }
+      // Base cap (two triangles across the footprint).
+      const hw = terrainWorldSize.w / 2, hh = terrainWorldSize.h / 2;
+      const capStart = n * 2;
+      const capVerts = [-hw, baseY, -hh, hw, baseY, -hh, hw, baseY, hh, -hw, baseY, hh];
+      const allVerts = new Float32Array(verts.length + capVerts.length);
+      allVerts.set(verts); allVerts.set(capVerts, verts.length);
+      const allCols = new Float32Array(cols.length + 12);
+      allCols.set(cols);
+      for (let i = 0; i < 4; i++) bot.toArray(allCols, cols.length + i * 3);
+      idx.push(capStart, capStart + 2, capStart + 1, capStart, capStart + 3, capStart + 2);
+
+      if (skirtMesh) { scene.remove(skirtMesh); skirtGeometry.dispose(); skirtMesh.material.dispose(); }
+
+      skirtGeometry = new THREE.BufferGeometry();
+      skirtGeometry.setAttribute('position', new THREE.BufferAttribute(allVerts, 3));
+      skirtGeometry.setAttribute('color', new THREE.BufferAttribute(allCols, 3));
+      skirtGeometry.setIndex(idx);
+      skirtGeometry.computeVertexNormals();
+
+      skirtMesh = new THREE.Mesh(skirtGeometry, new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.95, metalness: 0.0, flatShading: true,
+      }));
+      skirtMesh.castShadow = true;
+      skirtMesh.receiveShadow = true;
+      scene.add(skirtMesh);
     }
 
     function updateSunPosition(azimuthDeg, elevationDeg) {
@@ -1082,6 +1221,17 @@
         textureRGB.wrapS = THREE.ClampToEdgeWrapping;
         textureRGB.wrapT = THREE.ClampToEdgeWrapping;
         textureRGB.colorSpace = THREE.SRGBColorSpace;
+
+        // Baked sky-view ambient occlusion (see src/mesh_export.compute_sky_view_ao)
+        textureAO = null;
+        if (data.assets.ao) {
+          try {
+            textureAO = await textureLoader.loadAsync(data.assets.ao);
+            textureAO.wrapS = THREE.ClampToEdgeWrapping;
+            textureAO.wrapT = THREE.ClampToEdgeWrapping;
+            textureAO.colorSpace = THREE.NoColorSpace;
+          } catch (e) { textureAO = null; }
+        }
 
         // Check if error map exists for georeferenced SRTM validation
         if (data.assets.error_map) {
@@ -1186,6 +1336,16 @@
       const worldScale = 500;
       const worldWidth = worldScale;
       const worldHeight = worldScale / manifest.aspect_ratio;
+      terrainWorldSize = { w: worldWidth, h: worldHeight };
+
+      // Fit the shadow frustum to the actual footprint: a frustum much larger than
+      // the terrain wastes depth-map resolution and produces soft, muddy shadows.
+      const sd = Math.max(worldWidth, worldHeight) * 0.72;
+      directionalLight.shadow.camera.left = -sd;
+      directionalLight.shadow.camera.right = sd;
+      directionalLight.shadow.camera.top = sd;
+      directionalLight.shadow.camera.bottom = -sd;
+      directionalLight.shadow.camera.updateProjectionMatrix();
 
       terrainGeometry = new THREE.PlaneGeometry(worldWidth, worldHeight, w - 1, h - 1);
       terrainGeometry.rotateX(-Math.PI / 2);
@@ -1198,11 +1358,19 @@
 
       applyElevationDisplacement();
 
+      // aoMap samples the uv1 channel; PlaneGeometry only provides uv, so alias it.
+      if (textureAO && !terrainGeometry.attributes.uv1) {
+        terrainGeometry.setAttribute('uv1', terrainGeometry.attributes.uv);
+      }
+
       terrainMaterial = new THREE.MeshStandardMaterial({
         map: textureRGB,
+        aoMap: textureAO || null,
+        aoMapIntensity: 1.35,
         wireframe: false,
-        roughness: 0.85,
-        metalness: 0.1,
+        roughness: 0.92,
+        metalness: 0.0,
+        envMapIntensity: 0.35,
         flatShading: false,
       });
 
@@ -1245,6 +1413,9 @@
       } else {
         terrainGeometry.computeVertexNormals();
       }
+
+      terrainGeometry.computeBoundingSphere();
+      rebuildTerrainSkirt();
     }
 
     function computeArchitecturalNormals(pos, w, h) {
@@ -1298,57 +1469,184 @@
       syncPanelLayout();
     }
 
+    /**
+     * Per-scene validation readout.
+     *
+     * NOTE: every value here is either measured or shown as an em-dash. Earlier
+     * revisions fell back to hardcoded literals ("2.01 m", "0.992", "95.3%") when a
+     * scene had no validation data, which meant the panel could display numbers that
+     * were never computed for the scene on screen. Never reintroduce that.
+     */
     function populateValidationCard(manifest) {
       const val = manifest.validation;
       const btnDrape = document.getElementById('btn-drape-error');
+      const set = (id, v) => { document.getElementById(id).textContent = v; };
+      const num = (v, fmt) => (typeof v === 'number' && isFinite(v)) ? fmt(v) : '—';
+
       if (val && manifest.is_georeferenced) {
-        document.getElementById('val-rmse').textContent = val.rmse ? `${val.rmse.toFixed(2)} m` : '2.01 m';
-        document.getElementById('val-mae').textContent = val.mae ? `${val.mae.toFixed(2)} m` : '1.60 m';
-        document.getElementById('val-corr').textContent = val.pearson_r ? val.pearson_r.toFixed(3) : '0.992';
-        document.getElementById('val-inlier').textContent = val.inlier_fraction ? `${(val.inlier_fraction * 100).toFixed(1)}%` : '95.3%';
+        set('val-rmse', num(val.rmse, v => `${v.toFixed(2)} m`));
+        set('val-mae', num(val.mae, v => `${v.toFixed(2)} m`));
+        set('val-corr', num(val.pearson_r, v => v.toFixed(3)));
+        set('val-inlier', num(val.inlier_fraction, v => `${(v * 100).toFixed(1)}%`));
         btnDrape.style.display = 'block';
       } else {
-        document.getElementById('val-rmse').textContent = 'N/A';
-        document.getElementById('val-mae').textContent = 'N/A';
-        document.getElementById('val-corr').textContent = val ? (val.std ? `std=${val.std.toFixed(3)}` : '0.99') : '--';
-        document.getElementById('val-inlier').textContent = '100% rDSM';
+        // Relative rDSM: there is no metric ground truth for this scene, so report
+        // the distribution statistics we actually have instead of accuracy figures.
+        set('val-rmse', 'N/A (relative)');
+        set('val-mae', 'N/A (relative)');
+        set('val-corr', val && typeof val.std === 'number' ? `std = ${val.std.toFixed(3)}` : '—');
+        set('val-inlier', 'Unitless rDSM');
         btnDrape.style.display = 'none';
       }
+      loadBenchmarkPanel();
+    }
+
+    /**
+     * Independent benchmark: RMSE/MAE vs LiDAR-derived ground truth on the held-out
+     * GAMUS test split. This is the number that actually answers "is the DSM
+     * accurate", because unlike the SRTM figures above it is not measured against
+     * the same data used to calibrate the scene.
+     */
+    async function loadBenchmarkPanel() {
+      const box = document.getElementById('benchmark-box');
+      if (!box) return;
+      try {
+        const res = await fetch('/api/benchmark');
+        if (!res.ok) { box.style.display = 'none'; return; }
+        const b = await res.json();
+        if (!b || !b.overall) { box.style.display = 'none'; return; }
+
+        document.getElementById('bm-rmse').textContent = `${b.overall.rmse.toFixed(2)} m`;
+        document.getElementById('bm-mae').textContent = `${b.overall.mae.toFixed(2)} m`;
+        document.getElementById('bm-corr').textContent = b.overall.pearson_r.toFixed(3);
+        document.getElementById('bm-sub').textContent =
+          `${b.dataset} · ${b.n_tiles} tiles · ${b.cities.join('/')} · LiDAR nDSM`;
+
+        const rows = (b.per_class || []).map(c =>
+          `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+             <span style="color:var(--text-muted)">${c.name}</span>
+             <span style="font-family:var(--font-mono)">${c.rmse.toFixed(2)} m
+               <span style="color:var(--text-dim)"> (n=${c.n_px_m})</span></span>
+           </div>`).join('');
+        document.getElementById('bm-classes').innerHTML = rows;
+        box.style.display = 'flex';
+      } catch (e) {
+        box.style.display = 'none';
+      }
+    }
+
+    /**
+     * World XZ -> grid indices for the displaced terrain plane.
+     * PlaneGeometry(W,H,w-1,h-1).rotateX(-PI/2) lays vertex (ix,iy) at
+     * x = -W/2 + ix*stepX, z = -H/2 + iy*stepZ, so the mapping is exact.
+     */
+    function worldToGrid(x, z) {
+      const w = currentManifest.width, h = currentManifest.height;
+      const stepX = terrainWorldSize.w / (w - 1);
+      const stepZ = terrainWorldSize.h / (h - 1);
+      return {
+        fx: (x + terrainWorldSize.w / 2) / stepX,
+        fy: (z + terrainWorldSize.h / 2) / stepZ,
+        w, h,
+      };
+    }
+
+    /** Displaced world-space height at an arbitrary XZ, bilinearly interpolated. */
+    function sampleTerrainY(x, z) {
+      if (!terrainGeometry) return null;
+      const { fx, fy, w, h } = worldToGrid(x, z);
+      if (fx < 0 || fy < 0 || fx > w - 1 || fy > h - 1) return null;
+      const x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const x1 = Math.min(w - 1, x0 + 1), y1 = Math.min(h - 1, y0 + 1);
+      const tx = fx - x0, ty = fy - y0;
+      const P = terrainGeometry.attributes.position;
+      const a = P.getY(y0 * w + x0), b = P.getY(y0 * w + x1);
+      const c = P.getY(y1 * w + x0), d = P.getY(y1 * w + x1);
+      return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+    }
+
+    /**
+     * Ray-march the heightfield instead of raycasting triangles.
+     *
+     * WHY: Three.js Mesh.raycast() tests every triangle in the geometry. At 585k
+     * vertices that measured ~52 ms per call, and mousemove fires far more often
+     * than once per frame - which pinned the whole viewer at ~19 FPS whenever the
+     * cursor moved. The terrain is a regular grid, so marching the ray and doing
+     * O(1) array lookups is exact enough and ~1000x cheaper.
+     */
+    function pickTerrain(ndc) {
+      if (!terrainGeometry || !currentManifest) return null;
+      raycaster.setFromCamera(ndc, camera);
+      const ro = raycaster.ray.origin, rd = raycaster.ray.direction;
+
+      const hw = terrainWorldSize.w / 2, hh = terrainWorldSize.h / 2;
+      // Slab test against the XZ footprint to find the useful t-range.
+      let tMin = 0, tMax = 6000;
+      for (const [o, dcomp, lim] of [[ro.x, rd.x, hw], [ro.z, rd.z, hh]]) {
+        if (Math.abs(dcomp) < 1e-6) {
+          if (o < -lim || o > lim) return null;
+        } else {
+          let t1 = (-lim - o) / dcomp, t2 = (lim - o) / dcomp;
+          if (t1 > t2) { const s = t1; t1 = t2; t2 = s; }
+          tMin = Math.max(tMin, t1);
+          tMax = Math.min(tMax, t2);
+        }
+      }
+      if (tMax <= tMin) return null;
+
+      const step = Math.max(0.5, terrainWorldSize.w / currentManifest.width);
+      let prevT = tMin, prevDiff = null;
+      for (let t = tMin; t <= tMax; t += step) {
+        const px = ro.x + rd.x * t, py = ro.y + rd.y * t, pz = ro.z + rd.z * t;
+        const ty = sampleTerrainY(px, pz);
+        if (ty === null) { prevDiff = null; prevT = t; continue; }
+        const diff = py - ty;
+        if (diff <= 0) {
+          // Bisect between the last above-surface sample and this one.
+          let lo = prevDiff !== null ? prevT : t - step, hi = t;
+          for (let k = 0; k < 12; k++) {
+            const m = (lo + hi) / 2;
+            const mx = ro.x + rd.x * m, my = ro.y + rd.y * m, mz = ro.z + rd.z * m;
+            const mty = sampleTerrainY(mx, mz);
+            if (mty === null || my - mty > 0) lo = m; else hi = m;
+          }
+          const ft = (lo + hi) / 2;
+          const hit = new THREE.Vector3(ro.x + rd.x * ft, ro.y + rd.y * ft, ro.z + rd.z * ft);
+          const g = worldToGrid(hit.x, hit.z);
+          return {
+            point: hit,
+            px: Math.min(g.w - 1, Math.max(0, Math.round(g.fx))),
+            py: Math.min(g.h - 1, Math.max(0, Math.round(g.fy))),
+          };
+        }
+        prevDiff = diff; prevT = t;
+      }
+      return null;
     }
 
     function onMouseMove(event) {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      hoverDirty = true;   // resolved once per frame in animate(), not per event
+    }
 
-      if (!terrainMesh || flythroughActive) return;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(terrainMesh);
-
+    function updateHoverReadout() {
+      if (!terrainMesh || flythroughActive || !currentManifest) return;
       const elevReadout = document.getElementById('cursor-elevation');
       const slopeReadout = document.getElementById('cursor-slope');
 
-      if (intersects.length > 0 && intersects[0].uv) {
-        const uv = intersects[0].uv;
-        const w = currentManifest.width;
-        const h = currentManifest.height;
-
-        const px = Math.min(w - 1, Math.max(0, Math.floor(uv.x * w)));
-        const py = Math.min(h - 1, Math.max(0, Math.floor((1 - uv.y) * h)));
-        const idx = py * w + px;
-
+      const hit = pickTerrain(mouse);
+      if (hit) {
+        const idx = hit.py * currentManifest.width + hit.px;
         if (rawElevations && idx < rawElevations.length) {
           const elev = rawElevations[idx];
-          if (currentManifest.is_georeferenced) {
-            elevReadout.textContent = `${elev.toFixed(1)} m ASL`;
-          } else {
-            elevReadout.textContent = `${(elev * 100).toFixed(1)}% Relative`;
-          }
-
+          elevReadout.textContent = currentManifest.is_georeferenced
+            ? `${elev.toFixed(1)} m ASL`
+            : `${(elev * 100).toFixed(1)}% Relative`;
           if (slopeAngles && idx < slopeAngles.length) {
             const slope = slopeAngles[idx];
-            let slopeTag = slope < 15 ? " (Gentle)" : (slope < 30 ? " (Moderate)" : " (Steep Facade)");
-            slopeReadout.textContent = `${slope.toFixed(1)}°${slopeTag}`;
+            const tag = slope < 15 ? " (Gentle)" : (slope < 30 ? " (Moderate)" : " (Steep Facade)");
+            slopeReadout.textContent = `${slope.toFixed(1)}°${tag}`;
           }
         }
       } else {
@@ -1360,21 +1658,14 @@
     function onCanvasClick(event) {
       if (!measureModeActive || !terrainMesh) return;
 
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(terrainMesh);
-      if (intersects.length === 0) return;
-
-      const hit = intersects[0];
+      const hit = pickTerrain(mouse);
+      if (!hit) return;
       const pt = hit.point;
 
       // Extract elevation at hit
       let elev = 0;
-      if (hit.uv && rawElevations) {
-        const w = currentManifest.width;
-        const h = currentManifest.height;
-        const px = Math.min(w - 1, Math.max(0, Math.floor(hit.uv.x * w)));
-        const py = Math.min(h - 1, Math.max(0, Math.floor((1 - hit.uv.y) * h)));
-        elev = rawElevations[py * w + px];
+      if (rawElevations) {
+        elev = rawElevations[hit.py * currentManifest.width + hit.px];
       }
 
       measurePoints.push({ point: pt.clone(), elev: elev });
@@ -1464,7 +1755,7 @@
       const sharpVal = document.getElementById('sharp-val');
       sharpSlider.addEventListener('input', () => {
         sharpVal.textContent = Math.round(parseFloat(sharpSlider.value) * 100) + '%';
-        applyElevationDisplacement();
+        displacementDirty = true;
       });
 
       // Facade Normal Shading Toggle
@@ -1488,7 +1779,7 @@
       const exagVal = document.getElementById('exag-val');
       exagSlider.addEventListener('input', () => {
         exagVal.textContent = parseFloat(exagSlider.value).toFixed(1) + 'x';
-        applyElevationDisplacement();
+        displacementDirty = true;
       });
 
       // Sun Lighting Controls
@@ -1729,6 +2020,9 @@
       } else if (orbitControls && orbitControls.enabled) {
         orbitControls.update();
       }
+
+      if (displacementDirty) { displacementDirty = false; applyElevationDisplacement(); }
+      if (hoverDirty) { hoverDirty = false; updateHoverReadout(); }
 
       renderer.render(scene, camera);
 

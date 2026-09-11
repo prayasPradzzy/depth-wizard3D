@@ -1,0 +1,9 @@
+[18:18:48] ============================================================
+[18:18:48] OVERNIGHT RUN START
+[18:18:48] train manifest: 50 tiles (need 150)
+[18:20:48] train manifest: 75 tiles (need 150)
+[18:23:48] train manifest: 100 tiles (need 150)
+[18:26:48] train manifest: 125 tiles (need 150)
+[18:28:48] train manifest: 150 tiles (need 150)
+[18:28:48] split: 135 train / 15 val
+[18:28:48] TRAIN: C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\.venv-train\Scripts\python.exe C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\tools\train_gamus.py --manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_train_split.json --val-manifest C:\Users\pradz\AppData\Local\Temp\claude\C--Users-pradz-Downloads-web-dev-shi-depth-wizard3D-main-depth-wizard3D-main\2dbf4613-aea0-44de-a25c-2bbaa54a175f\scratchpad\_val_split.json --epochs 30 --crop 448 --batch 2 --out C:\Users\pradz\Downloads\web dev shi\depth-wizard3D-main\depth-wizard3D-main\checkpoints\agl_vits.pt

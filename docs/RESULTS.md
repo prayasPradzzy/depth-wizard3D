@@ -2,7 +2,64 @@
 
 **Smart India Hackathon 2026** · **Problem Statement 26175** · **ISRO**
 
-This document compiles quantitative benchmarks and empirical results across synthetic ground-truth tests, real-world satellite scenes, and deliberate failure/edge cases.
+---
+
+## 0. Independent LiDAR Benchmark (GAMUS) — PRIMARY RESULT
+
+This is the headline accuracy figure and the only one measured against **independent
+ground truth**. Every number below comes from `tools/eval_gamus.py` run on the
+held-out GAMUS **test** split, whose nDSM heights are derived from airborne LiDAR and
+are used nowhere in our calibration path.
+
+| | |
+|---|---|
+| Dataset | GAMUS test split |
+| Ground truth | LiDAR-derived nDSM (above-ground level, metres) |
+| Tiles evaluated | **141** (DC, PHL), 148M pixels |
+| Model | Depth Anything V2 small (zero-shot) |
+| Protocol | per-tile affine aligned (scale-invariant) |
+
+### Overall
+
+| Metric | Value |
+|---|---|
+| **RMSE** | **6.93 m** |
+| **MAE** | **4.51 m** |
+| **Pearson r** | **0.688** |
+| δ < 1.25 | 24.1% |
+| δ < 1.25² | 44.9% |
+| δ < 1.25³ | 62.0% |
+
+### Stability across land-cover types
+
+The problem statement asks for *"performance stability across urban, sparse, hilly and
+forested landscapes."* GAMUS ships per-pixel semantic labels, so error can be
+attributed directly to land-cover type:
+
+| Land cover | RMSE | MAE | Mean true height | Pixels |
+|---|---|---|---|---|
+| **Building** | 8.52 m | 5.01 m | 11.06 m | 36.4M |
+| **Ground** | 4.85 m | 3.03 m | 0.38 m | 31.1M |
+| **Tree** | 8.64 m | 6.62 m | 13.37 m | 30.2M |
+| **Road** | 5.17 m | 3.70 m | 1.81 m | 30.1M |
+| **Low vegetation** | 5.22 m | 3.68 m | 0.46 m | 16.9M |
+| **Water** | 8.30 m | 5.15 m | -3.72 m | 2.6M |
+
+**Reading these results.** Error tracks object height: the tall, geometrically complex
+classes (buildings, trees) carry roughly 1.8x the error of flat ground and road. That is
+the expected signature of a backbone trained on egocentric photography being applied
+to nadir imagery — it recovers coarse layout but under-resolves vertical structure.
+
+**On the protocol.** These figures use per-tile affine alignment, the standard
+scale-invariant protocol from the monocular-depth literature. They measure how correct
+the predicted *surface shape* is, given correct scale. They do **not** show that the
+system recovers absolute height unaided; that is the job of the SRTM/GCP calibration
+stage. Quoting these as absolute accuracy would be wrong.
+
+**Why this matters.** Earlier revisions of this project reported accuracy only against
+the same SRTM tile used to fit the calibration — a circular measurement. This section
+replaces that with a genuinely independent one, and the resulting numbers are honest
+about the domain gap rather than flattering.
 
 ---
 
