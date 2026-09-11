@@ -32,6 +32,16 @@ from PIL import Image
 import torch
 
 
+# Approximate ground sample distance of the aerial imagery the backbone performs
+# best on. Monocular depth is scale-dependent: the network learned what a building
+# edge, a tree crown and a road width look like *in pixels*. Hand it imagery at a
+# very different GSD and those learned priors no longer match, which is a large part
+# of why cross-sensor performance degrades.
+NATIVE_GSD_M = 0.5
+GSD_TOLERANCE = (0.6, 1.7)     # ratios inside this band are close enough to leave alone
+GSD_MAX_EDGE = 2048            # never blow an image up past this after rescaling
+
+
 def _resize_bilinear(arr: np.ndarray, size_hw: Tuple[int, int]) -> np.ndarray:
     """Resize a 2-D float array to (H, W) with high-precision bilinear interpolation."""
     target_h, target_w = size_hw
@@ -292,6 +302,7 @@ class DepthEstimator:
         tiled: Union[bool, str] = False,
         tile_size: int = 700,
         tile_overlap: float = 0.33,
+        gsd_m: Optional[float] = None,
     ) -> DepthResult:
         """
         Estimate relative depth from a single RGB image.
@@ -303,6 +314,10 @@ class DepthEstimator:
                    longest edge exceeds ~1.4x the tile size, where detail is otherwise lost).
             tile_size: Native-resolution tile edge in pixels.
             tile_overlap: Fractional overlap between adjacent tiles (0-0.9).
+            gsd_m: Ground sample distance of the input in metres per pixel. When given,
+                   the image is rescaled to the backbone's native GSD before inference
+                   and the result mapped back, which is what makes one model usable
+                   across sensors of differing resolution.
 
         Returns:
             DepthResult containing normalized relative height and raw disparity.
@@ -310,15 +325,41 @@ class DepthEstimator:
         pil_image = self._to_pil(image_input)
         orig_w, orig_h = pil_image.size
 
+        # --- Ground-sample-distance normalisation -------------------------------
+        # Resample so the scene is presented to the network at roughly the GSD it
+        # was tuned for, then map the prediction back to the source grid. This is
+        # what lets one model serve sensors with very different resolutions
+        # (e.g. Cartosat-3 at 0.25 m vs Cartosat-2 at 0.65 m) instead of silently
+        # degrading on whichever one it was not trained at.
+        infer_image = pil_image
+        gsd_note = None
+        if gsd_m and gsd_m > 0:
+            ratio = float(gsd_m) / NATIVE_GSD_M
+            if ratio < GSD_TOLERANCE[0] or ratio > GSD_TOLERANCE[1]:
+                tw, th = int(round(orig_w * ratio)), int(round(orig_h * ratio))
+                longest = max(tw, th)
+                if longest > GSD_MAX_EDGE:                # keep upsampling bounded
+                    k = GSD_MAX_EDGE / longest
+                    tw, th = int(tw * k), int(th * k)
+                tw, th = max(64, tw), max(64, th)
+                infer_image = pil_image.resize((tw, th), Image.Resampling.LANCZOS)
+                gsd_note = f"{orig_w}x{orig_h} @ {gsd_m:.2f}m/px -> {tw}x{th} @ ~{NATIVE_GSD_M}m/px"
+                print(f"[INFO] GSD normalisation: {gsd_note}")
+
+        iw, ih = infer_image.size
         if tiled == "auto":
-            use_tiled = max(orig_w, orig_h) > int(tile_size * 1.4)
+            use_tiled = max(iw, ih) > int(tile_size * 1.4)
         else:
             use_tiled = bool(tiled)
 
         if use_tiled:
-            raw_pred = self._infer_tiled(pil_image, tile=tile_size, overlap=tile_overlap)
+            raw_pred = self._infer_tiled(infer_image, tile=tile_size, overlap=tile_overlap)
         else:
-            raw_pred = self._infer_raw(pil_image)
+            raw_pred = self._infer_raw(infer_image)
+
+        # Map the prediction back onto the source grid.
+        if raw_pred.shape[:2] != (orig_h, orig_w):
+            raw_pred = _resize_bilinear(raw_pred, (orig_h, orig_w))
 
         norm_depth = normalise_depth(raw_pred, robust=robust)
 

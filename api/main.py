@@ -204,13 +204,14 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
                 rgb_uint8 = rgb_data
 
             height, width = rgb_uint8.shape[:2]
+            src_gsd = to_metric_resolution(transform, crs)   # feed real GSD to the model
 
             infer_rgb = rgb_uint8
             if ENHANCE_SHADOWS:
                 print("[API] Applying CLAHE shadow enhancement before inference...")
                 infer_rgb = np.asarray(enhance_shadows(rgb_uint8), dtype=np.uint8)
 
-            depth_res = estimator.predict(infer_rgb, robust=True, tiled=_TILED_ARG)
+            depth_res = estimator.predict(infer_rgb, robust=True, tiled=_TILED_ARG, gsd_m=src_gsd)
             rel_depth = depth_res.normalized_depth
 
             if FLATTEN_WATER:
@@ -262,7 +263,7 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
             except Exception as e:
                 print(f"[API WARNING] GeoTIFF export failed: {e}", file=sys.stderr)
 
-            gsd = to_metric_resolution(transform, crs)
+            gsd = src_gsd
             web_assets = export_for_web(
                 elevation_arr=pred_dsm,
                 rgb_input=rgb_uint8,

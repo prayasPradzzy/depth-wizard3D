@@ -22,6 +22,7 @@ WHY THIS MODULE EXISTS:
 
 import hashlib
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 import numpy as np
@@ -92,10 +93,27 @@ def read_geotiff(
     return data, crs, transform, bounds, nodata_mask
 
 
+# Global DEMs served by OpenTopography, with their practical trade-offs.
+#
+# SRTM is the historical default but it was flown in 2000 by C-band radar and has
+# well-known VOIDS over steep Himalayan terrain and persistent snow - precisely the
+# Indian topography this project most needs a reference for. Copernicus DEM 30m is
+# derived from TanDEM-X, is void-filled, and is generally the better choice for
+# Indian scenes. NASADEM is a reprocessed, partially void-filled SRTM.
+DEM_SOURCES = {
+    "COP30":    {"demtype": "COP30",    "desc": "Copernicus DEM 30m (TanDEM-X, void-filled; best for Himalayan terrain)"},
+    "SRTMGL1":  {"demtype": "SRTMGL1",  "desc": "SRTM 30m GL1 (2000 C-band; voids over steep/snow terrain)"},
+    "NASADEM":  {"demtype": "NASADEM",  "desc": "NASADEM 30m (reprocessed, partially void-filled SRTM)"},
+    "AW3D30":   {"demtype": "AW3D30",   "desc": "ALOS World 3D 30m (JAXA optical stereo)"},
+}
+DEFAULT_DEM = os.environ.get("DW_DEM_TYPE", "COP30").strip().upper()
+
+
 def fetch_srtm(
     bounds: rasterio.coords.BoundingBox,
     crs: CRS,
     out_dir: str | Path = "data/srtm",
+    dem_type: Optional[str] = None,
 ) -> Path:
     """
     Fetch the 30m SRTM tile (SRTMGL1) covering the specified bounding box via OpenTopography API.
@@ -112,6 +130,11 @@ def fetch_srtm(
     Raises:
         RuntimeError: If OPENTOPO_API_KEY is not set or if download fails.
     """
+    dem_type = (dem_type or DEFAULT_DEM).upper()
+    if dem_type not in DEM_SOURCES:
+        print(f"[WARNING] Unknown DEM type '{dem_type}', falling back to SRTMGL1.", file=sys.stderr)
+        dem_type = "SRTMGL1"
+
     api_key = os.environ.get("OPENTOPO_API_KEY")
     if not api_key:
         raise RuntimeError(
@@ -145,17 +168,18 @@ def fetch_srtm(
 
     # Create deterministic cache filename based on spatial coordinates
     coord_str = f"{west:.4f}_{south:.4f}_{east:.4f}_{north:.4f}"
-    cache_hash = hashlib.md5(coord_str.encode("utf-8")).hexdigest()[:8]
-    cached_file = out_path / f"srtm_{coord_str}_{cache_hash}.tif"
+    cache_hash = hashlib.md5((dem_type + coord_str).encode("utf-8")).hexdigest()[:8]
+    cached_file = out_path / f"{dem_type.lower()}_{coord_str}_{cache_hash}.tif"
 
     if cached_file.exists() and cached_file.stat().st_size > 1024:
         print(f"[INFO] Using cached SRTM reference tile: {cached_file.name}")
         return cached_file
 
-    print(f"[INFO] Downloading SRTM 30m tile from OpenTopography for extent: [{west:.4f}, {south:.4f}, {east:.4f}, {north:.4f}]...")
+    print(f"[INFO] Downloading {dem_type} ({DEM_SOURCES[dem_type]['desc']}) "
+          f"for extent: [{west:.4f}, {south:.4f}, {east:.4f}, {north:.4f}]...")
     url = "https://portal.opentopography.org/API/globaldem"
     params = {
-        "demtype": "SRTMGL1",
+        "demtype": DEM_SOURCES[dem_type]["demtype"],
         "south": f"{south:.6f}",
         "north": f"{north:.6f}",
         "west": f"{west:.6f}",
