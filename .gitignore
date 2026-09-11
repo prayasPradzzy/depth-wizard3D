@@ -5,3 +5,9 @@ __pycache__/
 *.pyd
 .env
 .DS_Store
+
+# Generated per-upload output; recreated on demand and excluded from the image too.
+data/web_jobs/
+data/output/
+data/srtm/
+logs/*.log
