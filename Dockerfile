@@ -45,6 +45,23 @@ RUN pip install -r requirements.txt
 RUN python -c "from transformers import pipeline; \
 pipeline(task='depth-estimation', model='depth-anything/Depth-Anything-V2-Small-hf', device=-1)"
 
+# Runtime shared libraries.
+#
+# rasterio ships its own GDAL inside the wheel, but that GDAL still links against a
+# few system libraries that python:*-slim does not carry. Without libexpat the
+# import fails at container start with:
+#   ImportError: libexpat.so.1: cannot open shared object file
+# libgomp is OpenMP, which scikit-learn needs.
+#
+# Deliberately placed after the pip layers: putting it in the earlier apt step
+# invalidates the PyTorch install layer and costs a full re-download on every
+# rebuild.
+RUN apt-get update  && apt-get install -y --no-install-recommends libexpat1 libgomp1  && rm -rf /var/lib/apt/lists/*
+
+# Verify the geospatial stack actually loads, so a missing shared library fails
+# the build here rather than at container start on someone else's machine.
+RUN python -c "import rasterio, pyproj, scipy, sklearn, matplotlib, torch, transformers; print('deps OK', rasterio.__version__)"
+
 # Application code. tests/ is included because the startup path falls back to its
 # synthetic terrain generator when no sample image is present.
 COPY api/ ./api/

@@ -97,6 +97,29 @@ main{display:grid;grid-template-columns:262px 1fr 322px;gap:10px;padding:10px;mi
 .tool:hover{color:var(--text);background:rgba(255,255,255,.07)}
 .tool.on{background:var(--accent);color:#04121f}
 .tool .k{font-family:var(--mono);opacity:.65;font-size:9px}
+#floodPanel{
+  position:absolute;left:11px;bottom:58px;z-index:6;display:none;flex-direction:column;gap:7px;
+  width:330px;padding:11px 12px;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);
+  border:1px solid var(--line2);border-radius:10px;font-size:11px;
+}
+#floodPanel.on{display:flex}
+.fp-head{display:flex;align-items:center;gap:8px}
+.fp-title{font-weight:700;font-size:11.5px}
+.fp-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--line);
+  padding:1px 6px;border-radius:4px}
+.fp-x{margin-left:auto;color:var(--muted);font-size:15px;line-height:1;padding:0 2px}
+.fp-x:hover{color:var(--text)}
+.fp-row{display:flex;align-items:center;gap:9px}
+.fp-row label{color:var(--muted);width:72px;flex:none}
+.fp-row input[type=range]{flex:1}
+.fp-row b{font-family:var(--mono);font-weight:600;width:78px;text-align:right;color:var(--accent)}
+.fp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding-top:2px}
+.fp-grid div{display:flex;flex-direction:column;gap:1px}
+.fp-grid span{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+.fp-grid b{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text)}
+.fp-cursor{border-top:1px solid var(--line);padding-top:7px}
+.fp-cursor span{color:var(--ok);font-family:var(--mono);font-size:10px;line-height:1.4}
+.fp-note{font-size:9px;color:var(--dim);line-height:1.45;border-top:1px solid var(--line);padding-top:6px}
 #keys{position:absolute;right:11px;bottom:11px;z-index:5;background:rgba(8,14,26,.82);backdrop-filter:blur(9px);border:1px solid var(--line2);border-radius:9px;padding:8px 10px;font-size:9.5px;color:var(--muted);pointer-events:none;display:none}
 #keys div{display:flex;align-items:center;gap:7px;padding:1.5px 0}
 #keys b{font-family:var(--mono);background:rgba(255,255,255,.11);padding:1px 5px;border-radius:3px;color:var(--text);font-weight:600;min-width:38px;text-align:center}
@@ -244,6 +267,32 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
           <button class="tool on" id="tFacade" title="Insert true vertical building faces instead of diagonal ramps">Sharp Buildings</button>
           <button class="tool" id="tRuler">Ruler</button>
           <button class="tool" id="tSun">Sun <span class="k">12h</span></button>
+          <button class="tool" id="tFlood" title="Inundation screening: connectivity-constrained flood fill on the estimated ground surface">Flood Risk</button>
+        </div>
+        <div id="floodPanel">
+          <div class="fp-head">
+            <span class="fp-title">Inundation Screening</span>
+            <span class="fp-tag" id="fpMode">-</span>
+            <button class="fp-x" id="fpClose" aria-label="Close flood panel">&times;</button>
+          </div>
+          <div class="fp-row">
+            <label for="floodLevel">Water level</label>
+            <input type="range" id="floodLevel" min="0" max="100" value="12">
+            <b id="fpLevel">-</b>
+          </div>
+          <div class="fp-row">
+            <label for="floodRate">Rise rate</label>
+            <input type="range" id="floodRate" min="1" max="60" value="10">
+            <b id="fpRate">-</b>
+          </div>
+          <div class="fp-grid">
+            <div><span>Inundated area</span><b id="fpArea">-</b></div>
+            <div><span>Max depth</span><b id="fpDepth">-</b></div>
+            <div><span>Built-up flooded</span><b id="fpBuilt">-</b></div>
+            <div><span>Structures at risk</span><b id="fpStruct">-</b></div>
+          </div>
+          <div class="fp-row fp-cursor"><span id="fpCursor">Hover the terrain for local flood timing.</span></div>
+          <div class="fp-note" id="fpNote"></div>
         </div>
         <div id="keys">
           <div><b>W A S D</b>Move</div><div><b>Mouse</b>Look around</div>
@@ -308,6 +357,7 @@ let terrainMesh=null,terrainGeometry=null,terrainMaterial=null;
 let skirtMesh=null,skirtGeometry=null;
 let facadeMesh=null,facadeGeometry=null,facadeCount=0;
 let facadesOn=true,cliffStrength=0.85;
+let floodOn=false,floodLevel=0,lastFlood=null,waterMesh=null,floodDirty=false;
 let sun,hemi,ambient,rim;
 let rawElevations=null,sharpElevations=null,groundElevations=null;
 let slopeAngles=null,manifest=null,jobId=null;
@@ -570,6 +620,199 @@ function buildFacades(){
   facadeCount=I.length/6;
 }
 
+
+/* ═══════════════════ inundation screening ═══════════════════
+ *
+ * WHAT THIS IS: connectivity-constrained bathtub inundation on the estimated
+ * ground surface. Standard first-pass flood screening.
+ *
+ * WHAT IT IS NOT: a hydrodynamic model. No flow velocity, no rainfall-runoff,
+ * no breach or routing physics. It answers "which ground lies below a given
+ * water level AND has a path for water to reach it" - the question that drives
+ * evacuation ordering - and nothing more.
+ *
+ * The connectivity constraint is what keeps it honest. A naive bathtub floods
+ * every hollow below the level, including basins with no hydraulic connection to
+ * the river, which overstates risk in exactly the inland pockets people would be
+ * told to leave. We flood-fill instead, seeded from the scene edges (where the
+ * watercourse enters and leaves) and from the natural low-lying drainage, so
+ * water only reaches what it can actually reach.
+ *
+ * Run on the GROUND estimate, not the DSM: flooding the surface model would
+ * treat every building as a dam.
+ */
+function computeFlood(level){
+  const w=manifest.width,h=manifest.height,n=w*h;
+  const g=groundElevations||rawElevations;
+  const mask=new Uint8Array(n);
+  const q=new Int32Array(n);
+  let qt=0;
+
+  let lo=Infinity,hi=-Infinity;
+  for(let i=0;i<n;i++){const v=g[i]; if(v<lo)lo=v; if(v>hi)hi=v;}
+  // Anything in the lowest sliver of the scene is watercourse or standing water,
+  // and is a legitimate source even when it sits mid-scene.
+  const drainage=lo+(hi-lo)*0.02;
+
+  const seed=i=>{ if(!mask[i]&&g[i]<=level){mask[i]=1;q[qt++]=i;} };
+  for(let x=0;x<w;x++){ seed(x); seed((h-1)*w+x); }
+  for(let y=0;y<h;y++){ seed(y*w); seed(y*w+w-1); }
+  for(let i=0;i<n;i++) if(g[i]<=drainage) seed(i);
+
+  let qh=0;
+  while(qh<qt){
+    const i=q[qh++], x=i%w, y=(i/w)|0;
+    if(x>0){const j=i-1; if(!mask[j]&&g[j]<=level){mask[j]=1;q[qt++]=j;}}
+    if(x<w-1){const j=i+1; if(!mask[j]&&g[j]<=level){mask[j]=1;q[qt++]=j;}}
+    if(y>0){const j=i-w; if(!mask[j]&&g[j]<=level){mask[j]=1;q[qt++]=j;}}
+    if(y<h-1){const j=i+w; if(!mask[j]&&g[j]<=level){mask[j]=1;q[qt++]=j;}}
+  }
+
+  const depth=new Float32Array(n);
+  const aglThr=(hi-lo)*0.08;
+  const builtMask=new Uint8Array(n);
+  let flooded=0,maxD=0,sumD=0,built=0;
+  for(let i=0;i<n;i++){
+    if(!mask[i]) continue;
+    flooded++;
+    const d=level-g[i]; depth[i]=d>0?d:0;
+    if(d>maxD)maxD=d; sumD+=depth[i];
+    if(groundElevations&&(rawElevations[i]-groundElevations[i])>aglThr){built++;builtMask[i]=1;}
+  }
+
+  // Structures are ESTIMATED from connected built-up footprints; we do not run
+  // instance segmentation, so specks below a plausible footprint are discarded
+  // and the figure is always presented with a "~".
+  let structures=0;
+  if(built){
+    const seen=new Uint8Array(n), cq=new Int32Array(n);
+    const minCells=Math.max(12,Math.round(n*0.00004));
+    for(let s0=0;s0<n;s0++){
+      if(!builtMask[s0]||seen[s0]) continue;
+      let ct=0,ch=0,ctl=0; cq[ctl++]=s0; seen[s0]=1;
+      while(ch<ctl){
+        const i=cq[ch++]; ct++;
+        const x=i%w,y=(i/w)|0;
+        if(x>0&&builtMask[i-1]&&!seen[i-1]){seen[i-1]=1;cq[ctl++]=i-1;}
+        if(x<w-1&&builtMask[i+1]&&!seen[i+1]){seen[i+1]=1;cq[ctl++]=i+1;}
+        if(y>0&&builtMask[i-w]&&!seen[i-w]){seen[i-w]=1;cq[ctl++]=i-w;}
+        if(y<h-1&&builtMask[i+w]&&!seen[i+w]){seen[i+w]=1;cq[ctl++]=i+w;}
+      }
+      if(ct>=minCells) structures++;
+    }
+  }
+  return {mask,depth,flooded,maxD,meanD:flooded?sumD/flooded:0,built,structures,lo,hi};
+}
+
+/** Translucent water surface, alpha-masked to the reachable flooded cells. */
+function updateWaterMesh(fl,level){
+  disposeWater();
+  if(!floodOn||!fl.flooded) return;
+  const w=manifest.width,h=manifest.height;
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d'),im=ctx.createImageData(w,h),D=im.data;
+  const maxD=Math.max(fl.maxD,1e-6);
+  for(let i=0;i<w*h;i++){
+    const p=i*4;
+    if(!fl.mask[i]){D[p+3]=0;continue;}
+    const t=Math.min(1,fl.depth[i]/maxD);
+    D[p]=Math.round(70-40*t); D[p+1]=Math.round(150-70*t); D[p+2]=Math.round(205-45*t);
+    D[p+3]=Math.round(110+115*t);
+  }
+  ctx.putImageData(im,0,0);
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  const geo=new THREE.PlaneGeometry(worldSize.w,worldSize.h,1,1);
+  geo.rotateX(-Math.PI/2);
+  waterMesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({
+    map:tex,transparent:true,depthWrite:false,roughness:.18,metalness:.05,
+    side:THREE.DoubleSide}));
+  waterMesh.position.y=(level-baseDatum)*heightScale*1.5+0.15;
+  waterMesh.renderOrder=2;
+  scene.add(waterMesh);
+}
+
+function disposeWater(){
+  if(!waterMesh) return;
+  scene.remove(waterMesh);
+  waterMesh.geometry.dispose();
+  if(waterMesh.material.map) waterMesh.material.map.dispose();
+  waterMesh.material.dispose();
+  waterMesh=null;
+}
+
+function floodUnits(){
+  // Depths are metres only once the scene is anchored to a DEM. Before that the
+  // surface is a relative rDSM and quoting metres would be fiction.
+  return (manifest&&manifest.is_georeferenced)?{k:1,u:'m',metric:true}:{k:100,u:'%',metric:false};
+}
+
+function refreshFlood(){
+  if(!floodOn||!manifest||!rawElevations) return;
+  const g=groundElevations||rawElevations;
+  let lo=Infinity,hi=-Infinity;
+  for(let i=0;i<g.length;i++){const v=g[i]; if(v<lo)lo=v; if(v>hi)hi=v;}
+  floodLevel=lo+(hi-lo)*(parseInt($('floodLevel').value,10)/100);
+  const fl=computeFlood(floodLevel);
+  lastFlood=fl;
+  updateWaterMesh(fl,floodLevel);
+
+  const U=floodUnits();
+  const gsd=(manifest.is_georeferenced&&manifest.gsd_m)?manifest.gsd_m:null;
+  const cellA=gsd?gsd*gsd:null;
+  const fmtA=cells=>{
+    if(!cellA) return (cells/(manifest.width*manifest.height)*100).toFixed(1)+'% of scene';
+    const m2=cells*cellA;
+    return m2>1e6?(m2/1e6).toFixed(2)+' km2':Math.round(m2).toLocaleString()+' m2';
+  };
+  $('fpLevel').textContent=((floodLevel-lo)*U.k).toFixed(1)+' '+U.u;
+  $('fpArea').textContent=fl.flooded?fmtA(fl.flooded):'none';
+  $('fpDepth').textContent=fl.flooded?(fl.maxD*U.k).toFixed(1)+' '+U.u:'-';
+  $('fpBuilt').textContent=groundElevations?(fl.built?fmtA(fl.built):'none'):'n/a';
+  $('fpStruct').textContent=groundElevations?'~'+fl.structures:'n/a';
+  $('fpMode').textContent=U.metric?'metric':'relative units';
+
+  const riseAbs=(hi-lo)*(parseInt($('floodRate').value,10)/100);
+  $('fpRate').textContent=(riseAbs*U.k).toFixed(U.metric?2:1)+' '+U.u+'/h';
+
+  $('fpNote').textContent=
+    'Connectivity-constrained inundation on the estimated ground surface: water is filled '
+    +'only where it has a path from the scene drainage or edges. Screening tool, not a '
+    +'hydrodynamic model - no flow velocity, rainfall-runoff or breach physics.'
+    +(U.metric?'':' Scene is uncalibrated, so levels are relative, not metres.')
+    +(groundElevations?'':' No ground estimate here - using the surface model, which treats buildings as barriers.');
+}
+
+/** Local evacuation timing under the cursor. */
+function floodCursor(idx){
+  if(!floodOn||!lastFlood||idx==null) return;
+  const g=groundElevations||rawElevations;
+  const U=floodUnits(), el=$('fpCursor');
+  const riseAbs=(lastFlood.hi-lastFlood.lo)*(parseInt($('floodRate').value,10)/100);
+  if(lastFlood.mask[idx]){
+    el.style.color='var(--danger)';
+    el.textContent='INUNDATED - depth '+(lastFlood.depth[idx]*U.k).toFixed(1)+' '+U.u;
+    return;
+  }
+  const head=g[idx]-floodLevel;
+  if(riseAbs<=0){
+    el.style.color='var(--ok)';
+    el.textContent='Dry - '+(head*U.k).toFixed(1)+' '+U.u+' above water';
+    return;
+  }
+  const hrs=head/riseAbs;
+  el.style.color=hrs<2?'var(--danger)':(hrs<6?'var(--warn)':'var(--ok)');
+  el.textContent='Dry - '+(head*U.k).toFixed(1)+' '+U.u+' freeboard, floods in '
+    +(hrs<1?Math.round(hrs*60)+' min':hrs.toFixed(1)+' h')+' at current rise';
+}
+
+function setFlood(on){
+  floodOn=on;
+  $('tFlood').classList.toggle('on',on);
+  $('floodPanel').classList.toggle('on',on);
+  if(on) refreshFlood(); else disposeWater();
+}
+
 function buildMesh(){
   if(terrainMesh){scene.remove(terrainMesh);terrainGeometry.dispose();terrainMaterial.dispose();}
   const w=manifest.width,h=manifest.height;
@@ -593,6 +836,7 @@ function buildMesh(){
   terrainMesh.castShadow=terrainMesh.receiveShadow=true;
   scene.add(terrainMesh);
   setLayer(layer);resetCamera();
+  if(floodOn) refreshFlood();
   $('sbVerts').textContent=(w*h/1000).toFixed(0)+'k verts'
     +(facadesOn&&facadeCount?' + '+facadeCount+' facades':'');
   $('sliceSlider').max=String(h-1);
@@ -732,6 +976,7 @@ function updateHover(){
     $('hAgl').textContent=agl!==null?fmt(agl*100,'%'):'-';
   }
   $('hSlope').textContent=slopeAngles?slopeAngles[i].toFixed(1)+'°':'-';
+  floodCursor(i);
 }
 /** Ground position directly beneath the camera, in WGS84. */
 function updateCameraLatLon(){
@@ -1022,6 +1267,10 @@ function wireUI(){
   };
   $('tRuler').onclick=()=>{rulerOn=!rulerOn;$('tRuler').classList.toggle('on',rulerOn);if(!rulerOn)clearRuler();};
   $('tSun').onclick=()=>setSunHour(sunHour>=18?6:sunHour+3);
+  $('tFlood').onclick=()=>setFlood(!floodOn);
+  $('fpClose').onclick=()=>setFlood(false);
+  $('floodLevel').oninput=()=>{floodDirty=true;};
+  $('floodRate').oninput=()=>{floodDirty=true;};
   $('btnFly').onclick=()=>setView('fps');
   $('btnReset').onclick=()=>setView('orbit');
   $('sliceSlider').oninput=drawProfile;
@@ -1051,6 +1300,7 @@ function animate(){
     const g=sampleY(camera.position.x,camera.position.z);
     if(g!==null&&camera.position.y<g+4)camera.position.y=g+4;
   }else if(orbit.enabled)orbit.update();
+  if(floodDirty){floodDirty=false;refreshFlood();}
   if(hoverDirty){hoverDirty=false;updateHover();}
   if(manifest){
     updateCameraLatLon();
