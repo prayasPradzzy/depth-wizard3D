@@ -66,15 +66,26 @@ def pick_window(items, size, max_items, want_relief):
                     if r and c: a += I[r - 1, c - 1]
                     return a
 
+                # Cloud rejection. Brightness alone is not enough - thin haze sits in
+                # the same range as bright ground. The reliable tell is that cloud has
+                # almost no cast shadow, and cast shadow is the primary height cue in
+                # nadir imagery. A measured comparison: a cloud-covered Nepal tile
+                # scored edge energy 12 with 3.9% dark pixels, against 80-96 and
+                # 19-33% for two usable scenes. So require real shadow and real edges.
+                dark = np.cumsum(np.cumsum((th < 60).astype(np.float32), 0), 1)
                 n = wt * wt
                 for r in range(0, T - wt, 2):
                     for c in range(0, T - wt, 2):
                         if box(fill, r, c) / n < 0.995:
                             continue
                         mu, sf = box(bri, r, c) / n, box(sat, r, c) / n
-                        if mu < 45 or mu > 175 or sf > 0.02:   # cloud / haze reject
+                        if mu < 45 or mu > 160 or sf > 0.02:
+                            continue
+                        if box(dark, r, c) / n < 0.08:      # no shadows -> cloud/haze
                             continue
                         sc = box(ei, r, c) / n
+                        if sc < 35:                          # too smooth to carry relief
+                            continue
                         if best is None or sc > best[0]:
                             best = (sc, url, int(r / T * src.height), int(c / T * src.width),
                                     j['id'], src.width, src.height, mu)
