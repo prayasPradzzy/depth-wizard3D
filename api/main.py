@@ -38,6 +38,7 @@ import rasterio
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.agl_model import get_agl_predictor
 from src.depth_extract import DepthEstimator
 from src.enhance import detect_water_mask, enhance_shadows, flatten_water
 from src.georef import align_to_reference, fetch_srtm, is_georeferenced, read_geotiff, to_metric_resolution
@@ -75,8 +76,13 @@ async def lifespan(_app: FastAPI):
             get_estimator().predict(
                 np.zeros((64, 64, 3), dtype=np.uint8), robust=True, tiled=False
             )
+            ap = get_agl_predictor()
+            if ap is not None:
+                ap.predict(np.zeros((64, 64, 3), dtype=np.uint8), gsd_m=None)
+                print(f"[INFO] AGL checkpoint loaded: {ap.meta}")
             print(f"[INFO] Model pre-warmed in {time.perf_counter() - t0:.1f}s "
-                  f"(size={MODEL_SIZE}, tiled={TILED_MODE})")
+                  f"(size={MODEL_SIZE}, tiled={TILED_MODE}, "
+                  f"finetuned={'yes' if ap is not None else 'no'})")
         except Exception as e:
             print(f"[WARNING] Pre-warm failed (first upload will be slower): {e}", file=sys.stderr)
     yield
@@ -149,6 +155,47 @@ def get_job_directory(job_id: str) -> Path:
     if not job_dir.exists() or not (job_dir / "manifest.json").exists():
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
     return job_dir
+
+
+def _attach_agl(job_dir: Path, rgb_for_model, gsd_m, manifest_patch: Dict[str, Any]) -> None:
+    """
+    Run the fine-tuned checkpoint and store its height-above-ground prediction.
+
+    Kept separate from the surface model on purpose. AGL is height above local
+    terrain, so rendering it as the 3D surface would flatten the landscape - a
+    mountain would disappear and leave only the buildings standing on it. The
+    surface model still drives the geometry; this supplies a *measured* AGL layer
+    where the viewer previously had to infer one morphologically.
+
+    Failure here is non-fatal: the scene still renders using the heuristic ground
+    estimate, just without the trained numbers.
+    """
+    predictor = get_agl_predictor()
+    if predictor is None:
+        return
+    try:
+        res = predictor.predict(rgb_for_model, gsd_m=gsd_m)
+        # Downsample to the web mesh grid so the viewer can index it directly.
+        from PIL import Image as _Im
+        w, h = manifest_patch["width"], manifest_patch["height"]
+        agl = np.array(
+            _Im.fromarray(res.agl.astype(np.float32), mode="F").resize((w, h), _Im.Resampling.BILINEAR),
+            dtype=np.float32,
+        )
+        agl.astype(np.float32).tofile(job_dir / "agl_model.bin")
+        finite = np.isfinite(agl)
+        manifest_patch["agl_model"] = {
+            "metric": bool(res.metric),
+            "reason": res.reason,
+            "model": res.model_name,
+            "max": round(float(np.max(agl[finite])) if finite.any() else 0.0, 2),
+            "mean": round(float(np.mean(agl[finite])) if finite.any() else 0.0, 2),
+            "p99": round(float(np.percentile(agl[finite], 99)) if finite.any() else 0.0, 2),
+        }
+        print(f"[API] AGL model: max {manifest_patch['agl_model']['max']}"
+              f"{' m' if res.metric else ' (relative)'} | {res.reason}")
+    except Exception as e:
+        print(f"[API WARNING] AGL model skipped: {e}", file=sys.stderr)
 
 
 @app.post("/api/process")
@@ -277,6 +324,8 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
             manifest_file = job_dir / "manifest.json"
             with open(manifest_file, "r", encoding="utf-8") as f:
                 m = json.load(f)
+            # GSD is known here, so the trained model's output is genuinely metric.
+            _attach_agl(job_dir, rgb_uint8, src_gsd, m)
             if val_metrics:
                 m["validation"] = val_metrics
                 m["error_map_file"] = "error_map.png"
@@ -332,6 +381,9 @@ async def process_image_upload(file: UploadFile = File(...)) -> Dict[str, Any]:
             manifest_file = job_dir / "manifest.json"
             with open(manifest_file, "r", encoding="utf-8") as f:
                 m = json.load(f)
+            # No CRS means no GSD, so the model's heights stay relative - the
+            # predictor flags this itself and the viewer labels it accordingly.
+            _attach_agl(job_dir, pil_img, None, m)
             m["validation"] = {
                 "type": "relative_rdsm",
                 "std": stats["std"],
@@ -387,6 +439,7 @@ async def get_job_result(job_id: str) -> Dict[str, Any]:
             "texture": f"/api/assets/{resolved_id}/texture.png",
             "ao": f"/api/assets/{resolved_id}/ao.png" if has_ao else None,
             "ground_bin": _opt("ground.bin"),
+            "agl_model_bin": _opt("agl_model.bin"),
             "depth_turbo": _opt("depth_turbo.png"),
             "elevation_metric": _opt("elevation_metric.png"),
             "metric_dsm_tif": _opt("metric_dsm.tif"),

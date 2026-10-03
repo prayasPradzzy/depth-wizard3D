@@ -495,6 +495,7 @@ let facadesOn=true,cliffStrength=0.85;
 let floodOn=false,floodLevel=0,lastFlood=null,waterMesh=null,floodDirty=false;
 let sun,hemi,ambient,rim;
 let rawElevations=null,sharpElevations=null,groundElevations=null;
+let aglModel=null,aglMeta=null;   // trained height-above-ground prediction
 let slopeAngles=null,manifest=null,jobId=null;
 let texRGB=null,texSlope=null,texAGL=null,texError=null,texAO=null;
 let worldSize={w:500,h:500},baseDatum=0,heightScale=1;
@@ -571,6 +572,15 @@ async function loadJob(id){
     sharpElevations=d.assets.heightmap_sharp_bin?new Float32Array(await(await fetch(d.assets.heightmap_sharp_bin)).arrayBuffer()):rawElevations;
     groundElevations=null;
     if(d.assets.ground_bin){try{groundElevations=new Float32Array(await(await fetch(d.assets.ground_bin)).arrayBuffer());}catch(e){}}
+    // Trained AGL. When present it replaces the morphological estimate: a measured
+    // prediction beats a shape heuristic, and it carries real units when GSD is known.
+    aglModel=null; aglMeta=manifest.agl_model||null;
+    if(d.assets.agl_model_bin){
+      try{
+        const b=new Float32Array(await(await fetch(d.assets.agl_model_bin)).arrayBuffer());
+        if(b.length===manifest.width*manifest.height) aglModel=b;
+      }catch(e){aglModel=null;}
+    }
     const L=new THREE.TextureLoader();
     texRGB=await L.loadAsync(d.assets.texture);
     texRGB.colorSpace=THREE.SRGBColorSpace;
@@ -614,16 +624,32 @@ function buildSlopeTexture(){
   texSlope=new THREE.CanvasTexture(c);
   texSlope.wrapS=texSlope.wrapT=THREE.ClampToEdgeWrapping;
 }
+/**
+ * Height above ground for a cell, and whether it may be quoted in metres.
+ * Trained prediction first; morphological estimate only as fallback.
+ */
+function aglAt(i){
+  if(aglModel) return aglModel[i];
+  if(groundElevations) return Math.max(0, rawElevations[i]-groundElevations[i]);
+  return null;
+}
+function aglIsMetric(){ return !!(aglMeta&&aglMeta.metric); }
+function aglSource(){
+  if(aglModel) return aglMeta&&aglMeta.metric?'trained model (metres)':'trained model (relative)';
+  if(groundElevations) return 'morphological estimate';
+  return null;
+}
+
 function buildAGLTexture(){
-  if(!groundElevations){texAGL=null;return;}
+  if(!aglModel&&!groundElevations){texAGL=null;return;}
   const w=manifest.width,h=manifest.height;
   const c=document.createElement('canvas');c.width=w;c.height=h;
   const ctx=c.getContext('2d'),im=ctx.createImageData(w,h),D=im.data;
   let mx=0;
-  for(let i=0;i<rawElevations.length;i++)mx=Math.max(mx,rawElevations[i]-groundElevations[i]);
+  for(let i=0;i<rawElevations.length;i++){const v=aglAt(i); if(v!==null&&v>mx)mx=v;}
   mx=Math.max(mx,1e-6);
   for(let i=0;i<rawElevations.length;i++){
-    const t=Math.min(1,Math.max(0,(rawElevations[i]-groundElevations[i])/mx)),p=i*4;
+    const t=Math.min(1,Math.max(0,(aglAt(i)||0)/mx)),p=i*4;
     D[p]=Math.round(255*Math.pow(t,1.6));
     D[p+1]=Math.round(60+195*Math.pow(t,.8));
     D[p+2]=Math.round(90+165*Math.pow(t,.5));
@@ -812,7 +838,8 @@ function computeFlood(level){
     flooded++;
     const d=level-g[i]; depth[i]=d>0?d:0;
     if(d>maxD)maxD=d; sumD+=depth[i];
-    if(groundElevations&&(rawElevations[i]-groundElevations[i])>aglThr){built++;builtMask[i]=1;}
+    const a=aglAt(i);
+    if(a!==null&&a>(aglModel?Math.max(2.0,aglThr):aglThr)){built++;builtMask[i]=1;}
   }
 
   // Structures are ESTIMATED from connected built-up footprints; we do not run
@@ -903,8 +930,9 @@ function refreshFlood(){
   $('fpLevel').textContent=((floodLevel-lo)*U.k).toFixed(1)+' '+U.u;
   $('fpArea').textContent=fl.flooded?fmtA(fl.flooded):'none';
   $('fpDepth').textContent=fl.flooded?(fl.maxD*U.k).toFixed(1)+' '+U.u:'-';
-  $('fpBuilt').textContent=groundElevations?(fl.built?fmtA(fl.built):'none'):'n/a';
-  $('fpStruct').textContent=groundElevations?'~'+fl.structures:'n/a';
+  const haveAgl=!!(aglModel||groundElevations);
+  $('fpBuilt').textContent=haveAgl?(fl.built?fmtA(fl.built):'none'):'n/a';
+  $('fpStruct').textContent=haveAgl?'~'+fl.structures:'n/a';
   $('fpMode').textContent=U.metric?'metric':'relative units';
 
   const riseAbs=(hi-lo)*(parseInt($('floodRate').value,10)/100);
@@ -1100,15 +1128,18 @@ function updateHover(){
   const i=hit.py*manifest.width+hit.px;
   const surf=rawElevations[i];
   const grnd=groundElevations?groundElevations[i]:null;
-  const agl=grnd!==null?Math.max(0,surf-grnd):null;
+  const agl=aglAt(i);
+  // AGL carries its own units: the trained model reports metres whenever the
+  // scene's GSD was known, independently of whether the surface was DEM-anchored.
+  if(agl===null) $('hAgl').textContent='-';
+  else if(aglModel) $('hAgl').textContent=aglIsMetric()?fmt(agl,'m'):fmt(agl,'rel',2);
+  else $('hAgl').textContent=geo?fmt(agl,'m'):fmt(agl*100,'%');
   if(geo){
     $('hSurf').textContent=fmt(surf,'m');
     $('hGround').textContent=fmt(grnd,'m');
-    $('hAgl').textContent=fmt(agl,'m');
   }else{
     $('hSurf').textContent=fmt(surf*100,'%');
     $('hGround').textContent=grnd!==null?fmt(grnd*100,'%'):'-';
-    $('hAgl').textContent=agl!==null?fmt(agl*100,'%'):'-';
   }
   $('hSlope').textContent=slopeAngles?slopeAngles[i].toFixed(1)+'°':'-';
   floodCursor(i);
@@ -1221,8 +1252,14 @@ function fillPanels(d){
   rows.push(['CRS',hasCrs?manifest.crs:'none (no spatial metadata)']);
   rows.push(['GSD',hasCrs&&manifest.gsd_m?manifest.gsd_m+' m/px':'-']);
   rows.push(['Elevation span',geo?manifest.min_elevation_m+' - '+manifest.max_elevation_m+' m':'0.00 - 1.00 (normalised)']);
-  if(manifest.max_agl!==undefined)
+  if(aglMeta){
+    rows.push(['Height model','Fine-tuned on GAMUS']);
+    rows.push(['Max height AGL',aglMeta.metric?aglMeta.max+' m':aglMeta.max.toFixed(2)+' (relative)']);
+    rows.push(['Mean height AGL',aglMeta.metric?aglMeta.mean+' m':aglMeta.mean.toFixed(2)+' (relative)']);
+    if(!aglMeta.metric) rows.push(['AGL units',aglMeta.reason]);
+  } else if(manifest.max_agl!==undefined){
     rows.push(['Max height AGL',geo?manifest.max_agl+' m':(manifest.max_agl*100).toFixed(1)+' %']);
+  }
   const v=manifest.validation;
   if(v&&geo){
     if(typeof v.rmse==='number')rows.push(['RMSE vs SRTM',v.rmse.toFixed(2)+' m']);
