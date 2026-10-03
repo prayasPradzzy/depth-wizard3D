@@ -1,0 +1,22 @@
+{
+ "jobs": [
+  {
+   "job_id": "job_1791041946_0c5a99",
+   "label": "test 6",
+   "georeferenced": false,
+   "size": "512x286"
+  },
+  {
+   "job_id": "job_1791041904_8f50d5",
+   "label": "india_sikkim_flood",
+   "georeferenced": false,
+   "size": "512x512"
+  },
+  {
+   "job_id": "job_1791041855_86e094",
+   "label": "bangkok_quake_0p3m",
+   "georeferenced": false,
+   "size": "512x512"
+  }
+ ]
+}

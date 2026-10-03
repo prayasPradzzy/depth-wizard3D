@@ -1,0 +1,5 @@
+# Binary scene assets: never diff, never munge line endings.
+*.bin  binary
+*.tif  binary
+*.png  binary
+*.pt   binary
