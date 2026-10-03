@@ -58,9 +58,13 @@ def main():
 
     out = PROJECT_ROOT / args.out
     static = out / "static"
-    if out.exists():
-        shutil.rmtree(out)
+    # Only ever clear what this script owns. An earlier version removed the whole
+    # output directory, which destroyed the hand-written docs that also live in
+    # docs/ - recoverable from git, but it should never have been possible.
+    if static.exists():
+        shutil.rmtree(static)
     static.mkdir(parents=True)
+    (out / "index.html").unlink(missing_ok=True)
 
     # Pick scenes: newest job per distinct source image, so repeated reprocessing of
     # the same file does not ship three near-identical copies.

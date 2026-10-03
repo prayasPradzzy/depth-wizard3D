@@ -139,7 +139,7 @@ correct behaviour, not a bug.
   is exactly where Indian scenes need it. Good answer if a judge asks.
 - **GSD normalisation** — resizes input to the scale the model was trained at, so one
   model can handle Cartosat-3 (0.25 m) and Cartosat-2S (0.65 m).
-- See `docs/ISRO_COMPATIBILITY.md` for the full sensor matrix.
+- See `docs/reference/ISRO_COMPATIBILITY.md` for the full sensor matrix.
 
 ---
 
@@ -157,8 +157,8 @@ All removed. Everything now shows a measured value or a dash.
 
 | Path | What |
 |---|---|
-| `docs/RESULTS.md` | Full benchmark tables — **use these for slides** |
-| `docs/ISRO_COMPATIBILITY.md` | Sensor matrix, DEM choice, stated limits |
+| `docs/reference/RESULTS.md` | Full benchmark tables — **use these for slides** |
+| `docs/reference/ISRO_COMPATIBILITY.md` | Sensor matrix, DEM choice, stated limits |
 | `tools/eval_gamus.py` | The benchmark script |
 | `tools/train_gamus.py` | Fine-tuning script |
 | `tools/fetch_scene.py` | Pulls georeferenced scenes from Maxar Open Data |

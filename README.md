@@ -165,13 +165,13 @@ Tests Web 3D asset generation, downsampling, and FastAPI endpoints:
 
 Additional technical details are available in the `docs/` directory:
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)  
+- [`docs/reference/ARCHITECTURE.md`](docs/reference/ARCHITECTURE.md)  
   System architecture, processing pipeline, and design decisions, including the reasoning behind Depth Anything V2, RANSAC, and Three.js.
 
-- [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md)  
+- [`docs/reference/LIMITATIONS.md`](docs/reference/LIMITATIONS.md)  
   Known limitations and current system boundaries, including the distinction between DEM and DSM data and the limitations of the current validation approach.
 
-- [`docs/RESULTS.md`](docs/RESULTS.md)  
+- [`docs/reference/RESULTS.md`](docs/reference/RESULTS.md)  
   Validation results across different test images, including selected failure cases and error measurements.
 
 ---
