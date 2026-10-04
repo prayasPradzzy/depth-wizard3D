@@ -309,7 +309,7 @@ button:focus:not(:focus-visible){outline:none}
 </script>
 </head>
 <body>
-<script>window.__DW_STATIC__='static/';window.__DW_API__="https://depthwizard-api.onrender.com";window.__DW_FULL_APP__="https://depthwizard-api.onrender.com";</script>
+<script>window.__DW_STATIC__='static/';window.__DW_API__="";window.__DW_FULL_APP__="";</script>
 
 <div id="app">
 <header id="topbar">
@@ -1456,11 +1456,15 @@ function wireUI(){
     // rather than leaving a dropzone that silently fails.
     const dz=$('dropzone');
     dz.style.cursor='default';
+    // Only offer the "full app" link when one actually exists; a dead link reads
+    // worse than simply not mentioning it.
+    const full=window.__DW_FULL_APP__;
     dz.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" '
       +'stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>'
-      +'<div class="t">This is the live demo build.<br>Pick a processed scene below, or '
-      +'<a href="'+(window.__DW_FULL_APP__||'#')+'" target="_blank" rel="noopener" class="l">'
-      +'run the full app</a> to upload your own image.</div>';
+      +'<div class="t">Live demo build &mdash; pick a processed scene below.'
+      +(full?'<br>Or <a href="'+full+'" target="_blank" rel="noopener" class="l">run the full app</a>'
+            +' to upload your own image.':'')
+      +'</div>';
     document.querySelectorAll('.step').forEach(e=>{
       e.classList.add('ok'); e.querySelector('.mk').textContent='\u2713';});
     refreshPresets();
