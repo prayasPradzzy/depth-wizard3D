@@ -32,7 +32,7 @@ checkpoint both loaded and a 768×768 inference running:
 Render's free and starter instances are both 512 MB, so neither can hold PyTorch.
 This is not a configuration problem — it is what the model costs.
 
-**If you don't want to pay**, deploy only the Vercel frontend. Everything except
+**You do not have to pay** - section 2 deploys the backend free on Modal. Render is kept below as a traditional always-on alternative. A third option is to deploy only the Vercel frontend: Everything except
 upload works, which is most of the demo. Run the backend locally when you want to
 show upload live.
 
@@ -71,7 +71,53 @@ Omit `--api` entirely to publish a read-only build with no upload.
 
 ---
 
-## 2. Backend on Render
+## 2. Backend — free, on Modal
+
+**This is the recommended option.** Modal's free credits cover a demo comfortably,
+it scales to zero so idle costs nothing, and the image is declared in Python —
+there is no Dockerfile and you never install Docker.
+
+```
+pip install modal
+modal setup                       # one-time browser login
+modal deploy deploy_modal.py
+```
+
+Modal prints a public `https://...modal.run` URL. First deploy takes ~10 minutes
+while it builds the image and bakes in the model weights; later deploys reuse the
+cached layers.
+
+Then point the frontend at it and push:
+
+```
+python tools/build_static.py --out docs --api <modal-url> --full-app-url <modal-url>
+git add docs && git commit -m "Point frontend at API" && git push
+```
+
+Vercel redeploys automatically. Upload now works end to end.
+
+### What `deploy_modal.py` sets, and why
+
+| Setting | Value | Reason |
+|---|---|---|
+| `memory` | 2048 MB | Measured peak is ~835 MB; this leaves real headroom |
+| `max_containers` | 1 | A processed scene lives on the container's local disk and is fetched over the next few seconds. With several containers a follow-up request can hit one that never saw the job |
+| `min_containers` | 0 | Scales to zero — an idle demo costs nothing |
+| `scaledown_window` | 300 s | Stays warm 5 min after the last request |
+| `DW_TILED` | `off` | Tiled inference costs ~20 s more per request |
+
+Cold start after idle is roughly 20–40 s. Baked scenes still load instantly from
+Vercel, so only upload pays that cost.
+
+### Alternative: Hugging Face Spaces
+
+Also genuinely free with 16 GB RAM, but the FastAPI path needs a Dockerfile.
+Hugging Face builds it remotely — you never run Docker locally — so this is worth
+considering if you prefer an always-on URL over scale-to-zero.
+
+---
+
+## 3. Backend on Render — paid alternative
 
 `render.yaml` is a blueprint — Render reads it and configures everything.
 
@@ -113,7 +159,7 @@ build — about 2.5 GB of wheels for GPU support no Render plan provides.
 
 ---
 
-## 3. Running locally
+## 4. Running locally
 
 ```
 setup_laptop.bat      # first time, ~10 min
