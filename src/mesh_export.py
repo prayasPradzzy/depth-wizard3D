@@ -213,8 +213,8 @@ def estimate_ground_surface(elevation: np.ndarray, scale_px: int = 48) -> np.nda
 
 
 def _colormap_png(arr: np.ndarray, path, cmap: str = "turbo") -> None:
-    """Render a 2D array to an 8-bit RGB PNG using a matplotlib colormap."""
-    import matplotlib as mpl
+    """Render a 2D array to an 8-bit RGB PNG using a colour ramp."""
+    from src.colormaps import apply as _cmap
 
     a = np.asarray(arr, dtype=np.float32)
     finite = np.isfinite(a)
@@ -223,8 +223,7 @@ def _colormap_png(arr: np.ndarray, path, cmap: str = "turbo") -> None:
     else:
         lo, hi = np.percentile(a[finite], [2.0, 98.0])
         a = np.clip((a - lo) / max(1e-6, hi - lo), 0.0, 1.0)
-    fn = mpl.colormaps[cmap]
-    Image.fromarray((fn(a)[:, :, :3] * 255).round().astype(np.uint8), mode="RGB").save(path)
+    Image.fromarray(_cmap(a, cmap), mode="RGB").save(path)
 
 
 def export_for_web(

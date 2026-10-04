@@ -1,5 +1,5 @@
 {
- "job_id": "job_1791041904_8f50d5",
+ "job_id": "job_1791118914_90ed9f",
  "manifest": {
   "width": 512,
   "height": 512,
@@ -11,7 +11,7 @@
   "max_elevation_m": 1.0,
   "elevation_span_m": 1.0,
   "is_georeferenced": false,
-  "crs": "EPSG:32645",
+  "crs": "EPSG:32647",
   "gsd_m": 1.221,
   "heightmap_file": "heightmap.png",
   "heightmap_bin_file": "heightmap.bin",
@@ -22,21 +22,21 @@
   "ground_bin_file": "ground.bin",
   "depth_turbo_file": "depth_turbo.png",
   "elevation_metric_file": "elevation_metric.png",
-  "max_agl": 0.33,
-  "mean_agl": 0.02,
+  "max_agl": 0.73,
+  "mean_agl": 0.07,
   "agl_model": {
    "metric": true,
    "reason": "GSD 0.31 m/px known; resampled to ~0.5 m/px",
    "model": "Depth Anything V2 Small, fine-tuned on GAMUS (val RMSE 3.496 m)",
-   "max": 12.82,
-   "mean": 1.47,
-   "p99": 10.57
+   "max": 16.99,
+   "mean": 3.04,
+   "p99": 13.4
   },
   "bounds_wgs84": [
-   88.598722,
-   27.601508,
-   88.605135,
-   27.607221
+   100.538964,
+   13.745402,
+   100.54478,
+   13.751087
   ],
   "has_geotiff": true,
   "has_crs": true,
@@ -44,17 +44,17 @@
   "calibration_note": "CRS and ground sample distance are read from the file, but no SRTM anchor was available, so heights remain relative. Set OPENTOPO_API_KEY to enable absolute metric elevation."
  },
  "assets": {
-  "heightmap": "/api/assets/job_1791041904_8f50d5/heightmap.png",
-  "heightmap_bin": "/api/assets/job_1791041904_8f50d5/heightmap.bin",
-  "heightmap_sharp_bin": "/api/assets/job_1791041904_8f50d5/heightmap_sharp.bin",
-  "texture": "/api/assets/job_1791041904_8f50d5/texture.png",
-  "ao": "/api/assets/job_1791041904_8f50d5/ao.png",
-  "ground_bin": "/api/assets/job_1791041904_8f50d5/ground.bin",
-  "agl_model_bin": "/api/assets/job_1791041904_8f50d5/agl_model.bin",
-  "depth_turbo": "/api/assets/job_1791041904_8f50d5/depth_turbo.png",
-  "elevation_metric": "/api/assets/job_1791041904_8f50d5/elevation_metric.png",
+  "heightmap": "/api/assets/job_1791118914_90ed9f/heightmap.png",
+  "heightmap_bin": "/api/assets/job_1791118914_90ed9f/heightmap.bin",
+  "heightmap_sharp_bin": "/api/assets/job_1791118914_90ed9f/heightmap_sharp.bin",
+  "texture": "/api/assets/job_1791118914_90ed9f/texture.png",
+  "ao": "/api/assets/job_1791118914_90ed9f/ao.png",
+  "ground_bin": "/api/assets/job_1791118914_90ed9f/ground.bin",
+  "agl_model_bin": "/api/assets/job_1791118914_90ed9f/agl_model.bin",
+  "depth_turbo": "/api/assets/job_1791118914_90ed9f/depth_turbo.png",
+  "elevation_metric": "/api/assets/job_1791118914_90ed9f/elevation_metric.png",
   "error_map": null,
-  "metric_dsm_tif": "/api/assets/job_1791041904_8f50d5/metric_dsm.tif",
-  "relative_dsm_tif": "/api/assets/job_1791041904_8f50d5/relative_dsm.tif"
+  "metric_dsm_tif": "/api/assets/job_1791118914_90ed9f/metric_dsm.tif",
+  "relative_dsm_tif": "/api/assets/job_1791118914_90ed9f/relative_dsm.tif"
  }
 }

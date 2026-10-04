@@ -23,8 +23,6 @@ from pathlib import Path
 from typing import Any, Dict, Union
 import numpy as np
 from PIL import Image
-import matplotlib as mpl
-import matplotlib.cm as cm
 
 
 def save_raw(data: np.ndarray, path: Union[str, Path]) -> Path:
@@ -76,10 +74,8 @@ def save_colormap(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     clipped = np.clip(data, 0.0, 1.0)
-    colormap_fn = mpl.colormaps[cmap] if hasattr(mpl, "colormaps") else cm.get_cmap(cmap)
-    # colormap_fn returns RGBA floats in [0, 1]
-    rgba = colormap_fn(clipped)
-    rgb_uint8 = (rgba[:, :, :3] * 255.0).round().astype(np.uint8)
+    from src.colormaps import apply as _cmap
+    rgb_uint8 = _cmap(clipped, cmap)
 
     img = Image.fromarray(rgb_uint8, mode="RGB")
     img.save(out_path)
@@ -122,9 +118,8 @@ def save_comparison(
 
     # Prepare colored depth image matching RGB dimensions
     clipped_depth = np.clip(depth_map, 0.0, 1.0)
-    colormap_fn = mpl.colormaps[cmap] if hasattr(mpl, "colormaps") else cm.get_cmap(cmap)
-    rgba_depth = colormap_fn(clipped_depth)
-    depth_uint8 = (rgba_depth[:, :, :3] * 255.0).round().astype(np.uint8)
+    from src.colormaps import apply as _cmap
+    depth_uint8 = _cmap(clipped_depth, cmap)
     pil_depth = Image.fromarray(depth_uint8, mode="RGB")
 
     if pil_depth.size != (target_w, target_h):

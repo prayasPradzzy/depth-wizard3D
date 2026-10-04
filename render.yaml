@@ -1,0 +1,61 @@
+# Render blueprint for the DepthWizard inference API.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> point at this repo.
+#
+# PLAN CHOICE IS NOT OPTIONAL HERE. Measured peak resident memory with the depth
+# model and the fine-tuned checkpoint both loaded is ~800 MB. Render's free and
+# starter instances are both 512 MB, so they are killed on the first inference.
+# `standard` (2 GB) is the smallest instance this fits in, with headroom for the
+# request that arrives while another is still being served.
+services:
+  - type: web
+    name: depthwizard-api
+    runtime: python
+    plan: standard
+    region: singapore          # closest Render region to India
+    branch: main
+    healthCheckPath: /api/benchmark
+
+    # Torch must come from the CPU index explicitly. Installed from PyPI it pulls
+    # the CUDA build: ~2.5 GB of wheels for GPU support no Render plan provides.
+    buildCommand: |
+      pip install --upgrade pip
+      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      pip install -r requirements.txt
+      python tools/prefetch_models.py
+
+    startCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 1
+
+    envVars:
+      # Weights are fetched at build time into the repo directory so the running
+      # service needs no network and the first upload is not slow.
+      - key: HF_HOME
+        value: /opt/render/project/src/.hf
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # One worker on purpose. Each worker loads its own copy of the model, so two
+      # would double memory for no throughput gain on a single-CPU instance.
+      - key: WEB_CONCURRENCY
+        value: "1"
+
+      - key: DW_TILED
+        value: "off"           # single-pass inference; tiled costs ~20 s more
+      - key: DW_PREWARM
+        value: "true"          # load models at boot, not on the first request
+      - key: DW_MESH_DIM
+        value: "768"           # smaller payload over the wire than 1024
+      - key: DW_MAX_JOBS
+        value: "12"            # ephemeral disk; keep the working set small
+      - key: DW_USE_FINETUNED
+        value: "true"
+
+      # Restrict to your deployed frontend once its URL is known. "*" is the
+      # default in code and is fine while testing.
+      - key: DW_ALLOWED_ORIGINS
+        sync: false
+
+      # Optional: enables absolute sea-level calibration.
+      # Free key from https://portal.opentopography.org
+      - key: OPENTOPO_API_KEY
+        sync: false

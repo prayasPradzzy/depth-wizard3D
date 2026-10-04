@@ -1,114 +1,132 @@
 # Deploying DepthWizard
 
-Two targets, because they serve different jobs.
+No containers. Frontend on **Vercel**, inference API on **Render**.
 
-| | What it is | Why |
+```
+  Browser ──► Vercel (static frontend, free, global CDN)
+                 │
+                 └── POST /api/process ──► Render (FastAPI + PyTorch)
+```
+
+The frontend ships pre-processed scenes, so the 3D viewer, flood screening,
+cross-section and benchmark panel all work **instantly and for free**, with no
+backend involved. Render is only needed when someone uploads their own image.
+
+---
+
+## Read this before picking a Render plan
+
+Measured peak resident memory of the API, with the depth model and the fine-tuned
+checkpoint both loaded and a 768×768 inference running:
+
+```
+  ~835 MB
+```
+
+| Render plan | RAM | Works? |
 |---|---|---|
-| **GitHub Pages** | Static viewer, pre-processed scenes | Opens instantly, never sleeps, free forever. **This is the link to share.** |
-| **Hugging Face Spaces** | Full app, upload your own image | Needs PyTorch + GDAL, so it sleeps between visits |
+| Free | 512 MB | **No** — killed on first inference |
+| Starter ($7/mo) | 512 MB | **No** — same limit |
+| **Standard ($25/mo)** | **2 GB** | **Yes**, with headroom |
+
+Render's free and starter instances are both 512 MB, so neither can hold PyTorch.
+This is not a configuration problem — it is what the model costs.
+
+**If you don't want to pay**, deploy only the Vercel frontend. Everything except
+upload works, which is most of the demo. Run the backend locally when you want to
+show upload live.
+
+Vercel cannot host the API at all: serverless functions cap at 250 MB deployment
+size, and PyTorch alone exceeds that.
 
 ---
 
-## 1. GitHub Pages — 2 minutes, no account needed
+## 1. Frontend on Vercel — free, 3 minutes
 
-Everything is already committed to `main` under `docs/`.
+The build is already committed in `docs/` (3.0 MB page load).
 
-1. Go to **github.com/prayasPradzzy/depth-wizard3D → Settings → Pages**
-2. **Source:** Deploy from a branch
-3. **Branch:** `main`, folder `/docs`
-4. **Save**
+1. **vercel.com → Add New → Project → Import** your GitHub repo
+2. Vercel reads `vercel.json`; leave the defaults:
+   - Framework Preset: **Other**
+   - Build Command: *(empty)*
+   - Output Directory: **docs**
+3. **Deploy**
 
-Live in 1–2 minutes at:
+Live at `https://<project>.vercel.app` in about a minute.
 
-```
-https://prayaspradzzy.github.io/depth-wizard3D/
-```
-
-Page weight is **2.9 MB** on open. The GeoTIFF exports are larger but only transfer when someone clicks download.
-
-### Rebuilding it after changes
+### Rebuilding after changes
 
 ```
-python tools/build_static.py --out docs --full-app-url <hf-space-url>
-git add docs && git commit -m "Rebuild static demo" && git push
+python tools/build_static.py --out docs \
+    --api https://<your-render-service>.onrender.com
+
+git add docs && git commit -m "Rebuild frontend" && git push
 ```
 
-It picks the newest job per source scene. Pin specific ones with `--jobs <id> <id>`.
+Vercel redeploys on push. The `--api` value is baked into the page, so **rerun this
+once you know your real Render URL** — the committed build currently points at the
+predicted `https://depthwizard-api.onrender.com`.
+
+Omit `--api` entirely to publish a read-only build with no upload.
 
 ---
 
-## 2. Hugging Face Spaces — full app with upload
+## 2. Backend on Render
 
-Free tier gives 2 vCPU and 16 GB RAM, which is enough. It sleeps after inactivity and takes ~30–60 s to wake, which is why the static build exists.
+`render.yaml` is a blueprint — Render reads it and configures everything.
 
-1. Create a free account at **huggingface.co**
-2. **New Space** → SDK **Docker** → Hardware **CPU basic (free)** → name it `depthwizard`
-3. Push:
+1. **render.com → New → Blueprint**
+2. Connect the repo and select it. Render finds `render.yaml`.
+3. Confirm the plan is **Standard** (see the memory note above)
+4. Set these two when prompted (both marked `sync: false`, so Render asks):
+   - `DW_ALLOWED_ORIGINS` → your Vercel URL, e.g. `https://depthwizard.vercel.app`
+   - `OPENTOPO_API_KEY` → optional; free from
+     [portal.opentopography.org](https://portal.opentopography.org). Enables
+     absolute sea-level calibration. Without it, heights above *ground* are still
+     reported in metres by the trained model.
+5. **Apply**
 
-```
-git clone https://huggingface.co/spaces/<your-username>/depthwizard hf-space
-cd hf-space
-```
+First build takes 10–15 minutes: it installs CPU PyTorch and prefetches the model
+weights so the first request isn't slow.
 
-Copy in everything except the heavy extras:
-
-```
-api/  src/  web/  tools/  tests/  data/input/  data/benchmark.json
-checkpoints/agl_vits.pt  requirements.txt  Dockerfile
-```
-
-Add a `README.md` at the root with this header — the Space will not start without it:
-
-```yaml
----
-title: DepthWizard
-emoji: 🛰️
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 8000
----
-```
-
-Then:
+Verify:
 
 ```
-git add -A && git commit -m "DepthWizard" && git push
+curl https://<your-service>.onrender.com/api/benchmark
 ```
 
-Hugging Face builds the Dockerfile automatically. First build is ~10–15 minutes.
+Then rebuild the frontend with the real URL (step 1 above).
 
-> The checkpoint is 95 MB. If the push is rejected for file size, enable Git LFS
-> (`git lfs track "*.pt"`) or omit it — the app falls back to the off-the-shelf model
-> and simply reports relative heights instead of metres.
+### What the blueprint sets, and why
+
+| Setting | Value | Reason |
+|---|---|---|
+| `WEB_CONCURRENCY` | `1` | Each worker loads its own model copy; a second doubles memory for no gain on one CPU |
+| `DW_TILED` | `off` | Tiled inference costs ~20 s more per request |
+| `DW_PREWARM` | `true` | Models load at boot, not on the first user's request |
+| `DW_MESH_DIM` | `768` | Smaller payload than 1024 over a metered connection |
+| `DW_MAX_JOBS` | `12` | Render's disk is ephemeral; keep the working set small |
+| `HF_HOME` | in-project | Weights cached during build, not downloaded at runtime |
+
+Torch is installed from the CPU index explicitly. From PyPI it resolves to the CUDA
+build — about 2.5 GB of wheels for GPU support no Render plan provides.
 
 ---
 
 ## 3. Running locally
 
 ```
-docker compose up --build        # containerised
-```
-
-or
-
-```
-setup_laptop.bat                 # first time, ~10 min
+setup_laptop.bat      # first time, ~10 min
 start_demo.bat
 ```
 
-Either way: **http://localhost:8000**, and wait for `Model pre-warmed` in the log.
+→ **http://localhost:8000**, once the log says `Model pre-warmed`.
 
-Optional, for absolute sea-level elevation: a free key from
-[portal.opentopography.org](https://portal.opentopography.org) in a `.env` file:
+Or directly:
 
 ```
-OPENTOPO_API_KEY=your_key_here
+.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
-
-Without it, scenes are georeferenced but uncalibrated — heights above *ground* are
-still reported in metres by the trained model, which is the number most analyses
-actually want.
 
 ---
 
@@ -116,10 +134,32 @@ actually want.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `DW_USE_FINETUNED` | `true` | Serve the GAMUS-fine-tuned checkpoint |
-| `DW_MESH_DIM` | `1024` | Web mesh and texture edge; `512` for faster loads |
+| `DW_USE_FINETUNED` | `true` | Serve the GAMUS fine-tuned checkpoint |
+| `DW_MESH_DIM` | `1024` | Mesh and texture edge; `512` loads fastest |
 | `DW_TILED` | `auto` | Tiled inference; `off` is faster for a live demo |
-| `DW_PREWARM` | `true` | Load models at startup so the first upload is fast |
-| `DW_DEM_TYPE` | `COP30` | Reference DEM: `COP30`, `SRTMGL1`, `NASADEM`, `AW3D30` |
+| `DW_PREWARM` | `true` | Load models at startup |
+| `DW_ALLOWED_ORIGINS` | `*` | Comma-separated CORS allowlist |
+| `DW_DEM_TYPE` | `COP30` | `COP30`, `SRTMGL1`, `NASADEM`, `AW3D30` |
 | `DW_MAX_JOBS` | `25` | Processed scenes retained on disk |
+| `PORT` | `8000` | Honoured automatically by Render |
 | `OPENTOPO_API_KEY` | — | Enables absolute metric calibration |
+
+---
+
+## Troubleshooting
+
+**Render build fails on torch** — the CUDA build was resolved instead of CPU. The
+blueprint's `buildCommand` installs from the CPU index first; keep that ordering.
+
+**Service restarts under load / "Ran out of memory"** — the instance is 512 MB.
+Upgrade to Standard.
+
+**Upload fails with a CORS error** — `DW_ALLOWED_ORIGINS` doesn't include your
+Vercel domain. Preview deployments get their own subdomains, so either add them or
+leave the value at `*`.
+
+**Frontend loads but upload 404s** — the built page is pointing at the wrong
+backend. Rebuild with `--api <real-url>` and push.
+
+**First request after idle is slow** — Render spins services down on lower plans.
+The baked scenes still load instantly because they come from Vercel.

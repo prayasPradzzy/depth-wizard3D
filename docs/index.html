@@ -309,7 +309,7 @@ button:focus:not(:focus-visible){outline:none}
 </script>
 </head>
 <body>
-<script>window.__DW_STATIC__='static/';window.__DW_FULL_APP__="https://huggingface.co/spaces/pradzzy/depthwizard";</script>
+<script>window.__DW_STATIC__='static/';window.__DW_API__="https://depthwizard-api.onrender.com";window.__DW_FULL_APP__="https://depthwizard-api.onrender.com";</script>
 
 <div id="app">
 <header id="topbar">
@@ -520,8 +520,15 @@ const $=id=>document.getElementById(id);
  * a bad first impression, and the only thing the static build gives up is uploading
  * your own image. */
 const STATIC = (typeof window.__DW_STATIC__ === 'string') ? window.__DW_STATIC__ : null;
+
+/* Backend origin. Empty means same-origin, which is how the app runs locally.
+ * The split deployment (frontend on a CDN, backend on a host that can hold
+ * PyTorch) sets this to the backend URL, so one build serves both topologies. */
+const API_BASE = (typeof window.__DW_API__ === 'string' ? window.__DW_API__ : '').replace(/\/$/,'');
+function live(path){ return API_BASE ? API_BASE + path : path; }
+
 function api(path){
-  if(!STATIC) return path;
+  if(!STATIC) return live(path);
   if(path === '/api/benchmark') return STATIC + 'benchmark.json';
   if(path === '/api/jobs')      return STATIC + 'jobs.json';
   let m = path.match(/^\/api\/result\/(.+)$/);
@@ -1415,7 +1422,7 @@ async function upload(file){
     if(stage<STEPS.length-1){stepState(STEPS[stage],'ok');stage++;stepState(STEPS[stage],'run');}
   },900);
   try{
-    const r=await fetch('/api/process',{method:'POST',body:fd});
+    const r=await fetch(live('/api/process'),{method:'POST',body:fd});
     clearInterval(tick);
     if(!r.ok){let e={};try{e=await r.json();}catch(x){}throw new Error(e.detail||('HTTP '+r.status));}
     const d=await r.json();
@@ -1444,7 +1451,7 @@ function refreshPresets(){
   }).catch(()=>{});
 }
 function wireUI(){
-  if(STATIC){
+  if(STATIC && !API_BASE){
     // No backend to process an upload against. Explain and point at the full app
     // rather than leaving a dropzone that silently fails.
     const dz=$('dropzone');

@@ -54,6 +54,10 @@ def main():
                     help="Job ids to include. Default: newest job per source scene.")
     ap.add_argument("--full-app-url", default="",
                     help="Where the uploadable version lives; shown in the dropzone.")
+    ap.add_argument("--api", default="",
+                    help="Backend origin, e.g. https://depthwizard-api.onrender.com. "
+                         "When set the built page uploads to that backend instead of "
+                         "being read-only, while still serving baked scenes instantly.")
     args = ap.parse_args()
 
     out = PROJECT_ROOT / args.out
@@ -141,6 +145,7 @@ def main():
 
     html = (PROJECT_ROOT / "web" / "index.html").read_text(encoding="utf-8")
     inject = ("<script>window.__DW_STATIC__='static/';"
+              f"window.__DW_API__={json.dumps(args.api)};"
               f"window.__DW_FULL_APP__={json.dumps(args.full_app_url)};</script>\n")
     html = html.replace("<body>", "<body>\n" + inject, 1) if "<body>" in html else inject + html
     (out / "index.html").write_text(html, encoding="utf-8")

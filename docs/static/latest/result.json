@@ -1,5 +1,5 @@
 {
- "job_id": "job_1791041946_0c5a99",
+ "job_id": "job_1791119002_9cdb21",
  "manifest": {
   "width": 512,
   "height": 286,
@@ -42,15 +42,15 @@
   }
  },
  "assets": {
-  "heightmap": "/api/assets/job_1791041946_0c5a99/heightmap.png",
-  "heightmap_bin": "/api/assets/job_1791041946_0c5a99/heightmap.bin",
-  "heightmap_sharp_bin": "/api/assets/job_1791041946_0c5a99/heightmap_sharp.bin",
-  "texture": "/api/assets/job_1791041946_0c5a99/texture.png",
-  "ao": "/api/assets/job_1791041946_0c5a99/ao.png",
-  "ground_bin": "/api/assets/job_1791041946_0c5a99/ground.bin",
-  "agl_model_bin": "/api/assets/job_1791041946_0c5a99/agl_model.bin",
-  "depth_turbo": "/api/assets/job_1791041946_0c5a99/depth_turbo.png",
-  "elevation_metric": "/api/assets/job_1791041946_0c5a99/elevation_metric.png",
+  "heightmap": "/api/assets/job_1791119002_9cdb21/heightmap.png",
+  "heightmap_bin": "/api/assets/job_1791119002_9cdb21/heightmap.bin",
+  "heightmap_sharp_bin": "/api/assets/job_1791119002_9cdb21/heightmap_sharp.bin",
+  "texture": "/api/assets/job_1791119002_9cdb21/texture.png",
+  "ao": "/api/assets/job_1791119002_9cdb21/ao.png",
+  "ground_bin": "/api/assets/job_1791119002_9cdb21/ground.bin",
+  "agl_model_bin": "/api/assets/job_1791119002_9cdb21/agl_model.bin",
+  "depth_turbo": "/api/assets/job_1791119002_9cdb21/depth_turbo.png",
+  "elevation_metric": "/api/assets/job_1791119002_9cdb21/elevation_metric.png",
   "error_map": null,
   "metric_dsm_tif": null,
   "relative_dsm_tif": null

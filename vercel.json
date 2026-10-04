@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": null,
+  "outputDirectory": "docs",
+  "framework": null,
+  "cleanUrls": true,
+  "headers": [
+    {
+      "comment": "Scene binaries are content-stable once built; let the CDN keep them.",
+      "source": "/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "comment": "The shell must revalidate so a redeploy is picked up immediately.",
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ]
+}

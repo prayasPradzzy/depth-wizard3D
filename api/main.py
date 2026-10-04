@@ -95,11 +95,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: wildcard origin is incompatible with credentials, and the viewer is served
-# same-origin anyway. Allow all origins WITHOUT credentials for easy local embedding.
+# CORS. The frontend may be served from a different origin than this API (static
+# host + separate inference host), so cross-origin requests have to be allowed.
+# Credentials stay off: this API has no auth and no cookies, and wildcard origins
+# are incompatible with credentialled requests anyway. Set DW_ALLOWED_ORIGINS to a
+# comma-separated list to lock it down to known frontends.
+_origins = [o.strip() for o in os.environ.get("DW_ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -561,4 +565,5 @@ if __name__ == "__main__":
     print("DepthWizard 3D Flythrough Server")
     print("Open viewer in your browser at: http://localhost:8000")
     print("=" * 65)
-    uvicorn.run("api.main:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("api.main:app", host="0.0.0.0",
+                port=int(os.environ.get("PORT", "8000")), reload=False)

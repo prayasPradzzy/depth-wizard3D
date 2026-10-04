@@ -49,10 +49,10 @@ nobody can verify.
 
 ## How to run it
 
-### Option A — Docker (nothing to install but Docker)
+### Option A — local (Windows)
 
 ```
-docker compose up --build
+setup_laptop.bat && start_demo.bat
 ```
 
 Then open **http://localhost:8000**.

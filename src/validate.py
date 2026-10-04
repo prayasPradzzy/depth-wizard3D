@@ -23,8 +23,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 from PIL import Image
-import matplotlib as mpl
-import matplotlib.cm as cm
 
 
 def compute_metrics(
@@ -118,9 +116,8 @@ def save_error_map(
         clipped = np.clip(error_arr[valid_mask], -clip_range_m, clip_range_m)
         normalized[valid_mask] = (clipped + clip_range_m) / (2.0 * clip_range_m)
 
-    colormap_fn = mpl.colormaps[cmap] if hasattr(mpl, "colormaps") else cm.get_cmap(cmap)
-    rgba = colormap_fn(normalized)
-    rgb_uint8 = (rgba[:, :, :3] * 255.0).round().astype(np.uint8)
+    from src.colormaps import apply as _cmap
+    rgb_uint8 = _cmap(normalized, cmap)
 
     # Set invalid pixels to neutral dark gray
     if not np.all(valid_mask):
